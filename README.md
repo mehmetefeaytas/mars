@@ -40,12 +40,46 @@ Haber sinyali iki eksende modellenir:
    resmi kaynak) **gömülü kütüphane** olarak kullanılır (git submodule, AGPL-3.0).
 2. **Polarite & şiddet:** Türkçe **BERT** duygu modeli (birincil) → **lexicon**
    fallback → opsiyonel **yerel LLM** (Ollama) fallback.
+3. **RSS akışları:** BloombergHT ve CNN Türk Ekonomi canlı çekilir; haberler
+   BIST şirket adlarıyla otomatik eşleştirilir (37 ticker eşlemesi).
 
 Etkin haber değeri: `news_value = polarite × güvenilirlik`. Bayesci sezgiyle,
 doğrulanmış ve hareketle **aynı yönde** bir haber şüpheyi düşürür; **çelişen**
 güvenilir haber hafifçe artırır; düşük güvenilirlikli söylenti nötr kalır.
 VeriShield bulunamazsa yerel sezgisel bir güvenilirlik skorlayıcı devreye girer;
 sistem yine çalışır.
+
+## Denetimli ML Katmanı
+
+Etiket şeması: `pump`/`subtle` → şüpheli, `news_legit` → meşru (kontrollü sentetik).
+Model: imputer + scaler + LogisticRegression. **Holdout AUC 0.9939**; model
+`data/models/mars_ml.joblib` altında kayıtlı ve `sig_ml` sinyali olarak füzyona
+girer. Eğitim:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/train_ml.py --seeds 30
+```
+
+Colab'da eğitim ve **gerçek vaka (`cases.csv`: ticker,tarih,etiket) ekleme**:
+`notebooks/mars_ml_colab.ipynb` — SPK kararlarından derlediğiniz etiketli günlerle
+zenginleştirilebilir.
+
+## Terminal Arayüzü
+
+```bash
+PYTHONPATH=src .venv/bin/streamlit run app.py
+```
+
+| Sekme | İçerik |
+|-------|--------|
+| 🔍 Şüpheli Hisseler | BIST sepeti taraması; skor sıralaması, veri güveni, getiri/AR, en etkili sinyal, CSV indirme |
+| 📊 Hisse Analizi | Mum + hacim + şüphe grafiği (Plotly), KPI kartları, sinyal şelalesi, **değer bazlı gerekçeler** (robust z, AR), gün seçici |
+| 📰 Haber Akışı | RSS haberleri; polarite ve VeriShield güvenilirlik rozetleri, hisse eşleştirme |
+| 🤖 LLM Açıklama | Yerel Ollama modeliyle günün yorumu; kural-tabanlı açıklama her zaman görünür |
+
+Kenar çubuğunda 10+ parametre: geçmiş uzunluğu, robust pencere, market model
+penceresi, iForest ayarları, 7 füzyon ağırlığı, haber ceza gücü, RSS/LLM anahtarları.
+LLM için: `ollama serve && ollama pull qwen2.5:7b-instruct`
 
 ## Kurulum
 
@@ -100,17 +134,20 @@ Veri alımı → Temizleme/ehizalama → Özellik müh. → Anomali tespiti → 
 
 ```
 src/mars/
-  ingestion.py     yfinance .IS + BIST100 + Parquet cache + takvim
+  ingestion.py     yfinance .IS + BIST100 + kapsam-farkındalıklı Parquet cache + takvim
   features.py      log getiri, MAD z, aralık, Amihud
-  signals.py       normalize [0,1] sinyal montajı
+  signals.py       normalize [0,1] sinyal montajı (+ sig_ml)
   anomaly/         robust_stats (MCD), iforest, evt, changepoint
   models/          market_model (event study / CAR)
-  news/            sentiment (BERT+lexicon), llm, verishield_adapter, analyzer
-  fusion/          weighted (kısıtlı), evidence (D-S), calibration
-  explain.py       katkı şelalesi + doğal dil özeti
+  news/            sentiment (BERT+lexicon), llm (+açıklama), rss, tickers, verishield_adapter
+  fusion/          weighted (kısıtlı, gün-bazlı normalize), evidence (D-S), calibration
+  ml.py            denetimli sınıflandırıcı (eğit/yükle/tahmin)
+  explain.py       katkı şelalesi + değer bazlı gerekçeler + doğal dil özeti
   pipeline.py      uçtan uca orkestrasyon
   experiments.py   baseline vs MARS, ablation, stres testi
-app.py             Streamlit arayüzü
+app.py             Streamlit terminal (4 sekme, trading-terminal teması)
+notebooks/         Colab ML eğitim defteri
+scripts/           train_ml.py, run_experiments.py
 ```
 
 ## Dürüst Sınırlar

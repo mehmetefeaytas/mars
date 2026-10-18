@@ -38,6 +38,30 @@ yanlis pozitif oranini dusurebilir miyiz ve her skoru bilesenlerine ayirabilir m
 - **Aciklanabilirlik.** SHAP [Lundberg & Lee 2017] ve waterfall katki dagilimi
   [Ribeiro 2016].
 
+### Denetimli ML Katmani (v2 eklenti)
+
+Etiketli zemin gercegi olmadigindan **kontrollu sentetik etiket semasi** kullanildi:
+`pump`, `subtle` → 1 (supheli); `news_legit` (mesru haber hareketi) ve normal
+gunler → 0. Model: SimpleImputer(median) + StandardScaler + LogisticRegression
+(class_weight=balanced). Egitim: 30 seed x 3 senaryo x 400 gun = 36.000 gozlem
+(28.800 egitim / 7.200 holdout). **Holdout AUC = 0.9939**.
+
+Ogrenilen katsayilar (standardize edilmis sinyaller uzerinde):
+`sig_index_divergence +1.45 > sig_volume +0.57 > sig_mahalanobis +0.43 >
+sig_isolation_forest +0.40 > sig_volatility -0.31 > sig_liquidity -0.36`.
+Dominant sinyalin endeks ayrisimasi (market model AR) olmasi, olay-calismasi
+yaklasiminin (MacKinlay 1997) ML tarafindan da secildigini gosterir — yontem
+tutarliligi kanitidir.
+
+Onemli metodolojik not: AUC yalnizca sentetik ayrim uzerindedir; gercek piyasa
+dogrulamasi degildir. Colab defteri (`notebooks/mars_ml_colab.ipynb`) kullanicinin
+SPK kararlarindan derledigi `cases.csv` (ticker,tarih,etiket) ile gercek vaka
+eklenmesine izin verir — etiketler kullanicinin sorumlulugundadir.
+
+Gun-bazli agirlik normalizasyonu: bir sinyalin o gun verisi yoksa (or. ML modeli
+yok) agirligi diger mevcut sinyallere yeniden dagitilir; boylece eksik sinyal
+skoru sistematik dusurmez (kisitli optimizasyonun eksik-veri genellemesi).
+
 ### Ileri (opsiyonel)
 - **Kuyruk esigi: EVT / Peaks-Over-Threshold (GPD)** [McNeil & Frey 2000].
 - **Karşı-olgusal etki: BSTS / CausalImpact** [Brodersen et al. 2015].
