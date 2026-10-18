@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { MetaInfo, fetchMeta } from "../api";
 import { useApp } from "../state";
+import { useTheme } from "../useTheme";
 import { Pill } from "./ui";
 
 const NAV = [
@@ -9,6 +10,7 @@ const NAV = [
   { to: "/analysis", icon: "📊", label: "Hisse Analizi" },
   { to: "/news", icon: "📰", label: "Haber Akışı" },
   { to: "/explain", icon: "🤖", label: "LLM Açıklama" },
+  { to: "/settings", icon: "⚙️", label: "Ayarlar" },
 ];
 
 const TITLES: Record<string, string> = {
@@ -16,18 +18,20 @@ const TITLES: Record<string, string> = {
   "/analysis": "Hisse Analizi",
   "/news": "Haber Akışı",
   "/explain": "LLM ile Açıklama",
+  "/settings": "Ayarlar",
 };
 
 export default function Layout(): JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
   const { ticker, setTicker } = useApp();
+  const { theme, toggle } = useTheme();
   const [meta, setMeta] = useState<MetaInfo | null>(null);
   const [search, setSearch] = useState(ticker);
 
   useEffect(() => {
     fetchMeta().then(setMeta).catch(() => setMeta(null));
-  }, []);
+  }, [location.pathname]);
 
   useEffect(() => setSearch(ticker), [ticker]);
 
@@ -35,7 +39,7 @@ export default function Layout(): JSX.Element {
     e.preventDefault();
     const t = search.trim().toUpperCase();
     if (t) {
-      setTicker(t);
+      setTicker(t.includes(".") ? t : `${t}.IS`);
       navigate("/analysis");
     }
   };
@@ -65,7 +69,7 @@ export default function Layout(): JSX.Element {
         ))}
 
         <div className="section">İzleme Listesi</div>
-        {(meta?.basket ?? ["THYAO.IS"]).slice(0, 10).map((t) => (
+        {(meta?.basket ?? ["THYAO.IS"]).slice(0, 14).map((t) => (
           <div
             key={t}
             className="watch-item"
@@ -101,13 +105,21 @@ export default function Layout(): JSX.Element {
             <input
               type="text"
               value={search}
-              placeholder="Hisse kodu (THYAO.IS)"
+              placeholder="Hisse kodu (THYAO)"
               onChange={(e) => setSearch(e.target.value)}
             />
             <button className="btn" type="submit">
               Analiz Et
             </button>
           </form>
+          <button
+            className="theme-toggle"
+            onClick={toggle}
+            title={theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç"}
+            type="button"
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
         </div>
         <div className="content">
           <Outlet />

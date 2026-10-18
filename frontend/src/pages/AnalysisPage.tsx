@@ -11,6 +11,7 @@ import {
 } from "lightweight-charts";
 import { Analysis, fetchAnalysis } from "../api";
 import { useApp } from "../state";
+import { useTheme } from "../useTheme";
 import { Card, ErrorBox, Spinner, fmtPct, scoreColor } from "../components/ui";
 import { ParamsPanel } from "./ParamsPanel";
 
@@ -18,48 +19,51 @@ function toTs(date: string): UTCTimestamp {
   return Math.floor(new Date(date + "T00:00:00Z").getTime() / 1000) as UTCTimestamp;
 }
 
+interface ChartPalette {
+  text: string;
+  grid: string;
+  border: string;
+}
+
 function PriceChart({
   analysis,
   onSelectDay,
+  palette,
 }: {
   analysis: Analysis;
   onSelectDay: (date: string) => void;
+  palette: ChartPalette;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const suspicionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!ref.current || !suspicionRef.current) return;
-    const chart: IChartApi = createChart(ref.current, {
+    const base = {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#8b94a7",
+        textColor: palette.text,
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "#1a2233" },
-        horzLines: { color: "#1a2233" },
+        vertLines: { color: palette.grid },
+        horzLines: { color: palette.grid },
       },
+    };
+    const chart: IChartApi = createChart(ref.current, {
+      ...base,
       width: ref.current.clientWidth,
       height: 340,
-      rightPriceScale: { borderColor: "#1e2739" },
-      timeScale: { borderColor: "#1e2739", timeVisible: false },
+      rightPriceScale: { borderColor: palette.border },
+      timeScale: { borderColor: palette.border, timeVisible: false },
       crosshair: { mode: 0 },
     });
     const volumeChart: IChartApi = createChart(suspicionRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#8b94a7",
-        fontSize: 11,
-      },
-      grid: {
-        vertLines: { color: "#1a2233" },
-        horzLines: { color: "#1a2233" },
-      },
+      ...base,
       width: suspicionRef.current.clientWidth,
       height: 130,
-      rightPriceScale: { borderColor: "#1e2739", scaleMargins: { top: 0.1, bottom: 0 } },
-      timeScale: { borderColor: "#1e2739", timeVisible: false },
+      rightPriceScale: { borderColor: palette.border, scaleMargins: { top: 0.1, bottom: 0 } },
+      timeScale: { borderColor: palette.border, timeVisible: false },
     });
 
     const candles: CandlestickData[] = [];
@@ -114,7 +118,6 @@ function PriceChart({
     suspicionSeries.createPriceLine({ price: 65, color: "#f87171", lineWidth: 1, lineStyle: 2, title: "yüksek" });
     suspicionSeries.createPriceLine({ price: 35, color: "#fbbf24", lineWidth: 1, lineStyle: 2, title: "orta" });
 
-    // Zaman ekseni senkronu
     const sync = (from: IChartApi, to: IChartApi) => {
       from.timeScale().subscribeVisibleLogicalRangeChange((range) => {
         if (range) to.timeScale().setVisibleLogicalRange(range);
@@ -144,7 +147,7 @@ function PriceChart({
       chart.remove();
       volumeChart.remove();
     };
-  }, [analysis, onSelectDay]);
+  }, [analysis, onSelectDay, palette]);
 
   return (
     <div className="chart-wrap">
@@ -153,15 +156,21 @@ function PriceChart({
         <span><span className="dot" style={{ background: "#22c55e" }} />Yükseliş</span>
         <span><span className="dot" style={{ background: "#ef4444" }} />Düşüş</span>
         <span><span className="dot" style={{ background: "#2dd4bf" }} />Şüphe skoru (alt panel)</span>
-        <span style={{ marginLeft: "auto" }}>Grafikte bir güne tıklayarak incele</span>
+        <span style={{ marginLeft: "auto" }}>Grafikte bir güne tıklayarak inceleyin</span>
       </div>
       <div ref={suspicionRef} style={{ marginTop: 4 }} />
     </div>
   );
 }
 
+const PALETTES = {
+  dark: { text: "#8b94a7", grid: "#1a2233", border: "#1e2739" },
+  light: { text: "#5b6b85", grid: "#eef1f7", border: "#e2e7f0" },
+};
+
 export default function AnalysisPage(): JSX.Element {
   const { ticker, params } = useApp();
+  const { theme } = useTheme();
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,9 +188,9 @@ export default function AnalysisPage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [ticker, params]);
 
-  if (loading) return <Spinner label={`${ticker} analiz ediliyor…`} />;
+  if (loading) return <Spinner label={`${ticker} inceleniyor…`} />;
   if (error) return <ErrorBox message={`${ticker}: ${error}`} />;
-  if (!analysis) return <div className="empty">Analiz için hisse seçin.</div>;
+  if (!analysis) return <div className="empty">Analiz için bir hisse seçin.</div>;
 
   const i = dayIdx ?? analysis.dates.length - 1;
   const last = analysis.dates.length - 1;
@@ -191,7 +200,6 @@ export default function AnalysisPage(): JSX.Element {
   const ar = analysis.abnormal_ret[i];
   const newsFactor = analysis.news_factor[i] ?? 1;
 
-  // Gunun katkilari (musteri tarafindan hesaplanir)
   const contribs = Object.entries(analysis.contributions)
     .map(([k, arr]) => ({ key: k.replace("contrib_sig_", "").replace(/_/g, " "), pts: arr[i] ?? 0 }))
     .filter((c) => c.pts > 0.05)
@@ -211,19 +219,21 @@ export default function AnalysisPage(): JSX.Element {
       color: (logRet ?? 0) >= 0 ? "var(--up)" : "var(--down)",
     },
     {
-      label: "Anormal Getiri (AR)",
+      label: "Endekse Göre Fazlası",
       value: fmtPct(ar),
-      sub: "market modeli artığı",
+      sub: "beklenenden sapma",
       color: (ar ?? 0) >= 0 ? "var(--up)" : "var(--down)",
     },
-    { label: "Haber Faktörü", value: newsFactor.toFixed(2), sub: newsFactor < 0.999 ? "açıklayıcı haber" : "etkisiz" },
+    { label: "Haber Etkisi", value: newsFactor.toFixed(2), sub: newsFactor < 0.999 ? "haber skoru düşürdü" : "etkisiz" },
     {
       label: "Tahta Bağlamı",
       value: analysis.liquidity_tier,
-      sub: `önsel ${analysis.tahta_prior.toFixed(2)} · medyan hacim ${(analysis.adv_dollar_median / 1e9).toFixed(1)}B TL`,
+      sub: `likidite önseli ${analysis.tahta_prior.toFixed(2)}`,
       color: "var(--info)",
     },
   ];
+
+  const matchedNews = analysis.news.filter((n) => !n.general);
 
   return (
     <>
@@ -261,14 +271,21 @@ export default function AnalysisPage(): JSX.Element {
           ))}
         </div>
 
-        <PriceChart analysis={analysis} onSelectDay={(d) => {
-          const idx = analysis.dates.indexOf(d);
-          if (idx >= 0) setDayIdx(idx);
-        }} />
+        <PriceChart
+          analysis={analysis}
+          palette={PALETTES[theme]}
+          onSelectDay={(d) => {
+            const idx = analysis.dates.indexOf(d);
+            if (idx >= 0) setDayIdx(idx);
+          }}
+        />
       </Card>
 
       <div className="grid-2" style={{ marginTop: 14 }}>
-        <Card title={`Sinyal Katkıları — ${analysis.dates[i]}`}>
+        <Card title={`Skoru En Çok Artıranlar — ${analysis.dates[i]}`}>
+          <p className="hint" style={{ fontSize: ".72rem" }}>
+            Bir çubuğun uzunluğu, o sinyalin şüphe skoruna <b>kaç puan</b> eklediğini gösterir.
+          </p>
           {contribs.length ? (
             contribs.map((c) => (
               <div className="sig-row" key={c.key}>
@@ -280,11 +297,11 @@ export default function AnalysisPage(): JSX.Element {
               </div>
             ))
           ) : (
-            <div className="empty">Bu gün belirgin katkı yok.</div>
+            <div className="empty">Bu gün belirgin bir katkı yok.</div>
           )}
         </Card>
 
-        <Card title="Gerekçeler (değer bazlı)">
+        <Card title="Neden Bu Skor? (sayılarla)">
           {i === last && analysis.reasons.length ? (
             analysis.reasons.map((r, idx) => (
               <div className="reason" key={idx}>
@@ -296,11 +313,11 @@ export default function AnalysisPage(): JSX.Element {
               </div>
             ))
           ) : (
-            <p style={{ fontSize: ".8rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+            <p style={{ fontSize: ".8rem", color: "var(--text-muted)", lineHeight: 1.7 }}>
               {analysis.summary}
               <br /><br />
               <span style={{ color: "var(--text-faint)" }}>
-                Gün-özel gerekçeler için <b>LLM Açıklama</b> sayfasını kullanın.
+                Seçtiğiniz güne özel açıklama için <b>LLM Açıklama</b> sayfasını kullanın.
               </span>
             </p>
           )}
@@ -308,12 +325,25 @@ export default function AnalysisPage(): JSX.Element {
       </div>
 
       {analysis.news.length ? (
-        <Card title={`Eşleşen Haberler (${analysis.news.length})`} className="" >
+        <Card
+          title={
+            matchedNews.length
+              ? `📰 Bu Hisseyle İlgili Haberler (${matchedNews.length})`
+              : "📰 Bu hisseyle eşleşen haber bulunamadı — güncel piyasa haberleri"
+          }
+        >
+          {matchedNews.length ? null : (
+            <p className="hint" style={{ fontSize: ".72rem" }}>
+              Hisseye özel bir haber yakalanamadı; bilgi amaçlı genel piyasa akışı gösteriliyor.
+            </p>
+          )}
           {analysis.news.map((n, idx) => (
             <div className="news-card" key={idx}>
               {n.url ? <a href={n.url} target="_blank" rel="noreferrer" className="t">{n.headline}</a> : <span className="t">{n.headline}</span>}
               <div className="m">
                 <span>{n.source}</span>
+                {n.timestamp ? <span>{new Date(n.timestamp).toLocaleDateString("tr-TR")}</span> : null}
+                {n.general ? <span className="badge b-cat">genel piyasa</span> : null}
                 <span className={`badge ${n.polarity > 0.05 ? "b-pos" : n.polarity < -0.05 ? "b-neg" : "b-neu"}`}>
                   {n.label} {n.polarity >= 0 ? "+" : ""}{n.polarity}
                 </span>
@@ -322,7 +352,13 @@ export default function AnalysisPage(): JSX.Element {
             </div>
           ))}
         </Card>
-      ) : null}
+      ) : (
+        <Card title="📰 Haberler">
+          <p className="hint" style={{ fontSize: ".78rem", marginBottom: 0 }}>
+            Şu an gösterilecek haber yok. Ayarlar sayfasından RSS akışlarını kontrol edin.
+          </p>
+        </Card>
+      )}
 
       <div style={{ marginTop: 14 }}>
         <ParamsPanel />

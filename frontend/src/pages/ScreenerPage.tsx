@@ -81,10 +81,12 @@ export default function ScreenerPage(): JSX.Element {
 
   return (
     <>
-      <Card title="Sepet Taraması — MARS Şüphe Skoru">
-        <p style={{ fontSize: ".78rem", color: "var(--text-muted)", marginBottom: 12 }}>
-          BIST sepeti son işlem günü itibarıyla skorlanır. İlk tarama verileri indirir
-          (ağ gerektirir), sonraki taramalar önbellekten gelir. Sıra: şüphe skoruna göre.
+      <Card title="🔍 Şüpheli Hisseler — Sepet Taraması">
+        <p className="hint" style={{ fontSize: ".78rem" }}>
+          İzleme listesindeki tüm hisseler, son işlem günü için tek tek puanlanır ve
+          en dikkat çekiciler üstte olacak şekilde sıralanır. <b>İlk tarama</b> verileri
+          indirdiği için birkaç dakika sürebilir; sonraki taramalar önbellekten hızlı gelir.
+          Bir hisseye tıklayarak detaylı incelemeye geçebilirsiniz.
         </p>
         <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
           <button className="btn" onClick={() => run(basket)} disabled={loading}>

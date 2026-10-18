@@ -41,6 +41,7 @@ export interface NewsBrief {
   polarity: number;
   label: string;
   credibility: number;
+  general?: boolean;
 }
 
 export interface Analysis {
@@ -67,6 +68,7 @@ export interface Analysis {
   liquidity_tier: string;
   adv_dollar_median: number;
   news: NewsBrief[];
+  news_is_general: boolean;
   summary: string;
   waterfall: WaterfallItem[];
   reasons: Reason[];
@@ -98,6 +100,8 @@ export interface NewsItem {
   sentiment_backend: string;
   credibility: number;
   credibility_backend: string;
+  category?: string;
+  ticker?: string | null;
 }
 
 export interface ExplainResult {
@@ -109,6 +113,49 @@ export interface ExplainResult {
   reasons: Reason[];
   llm: string | null;
   llm_backend: string;
+  llm_error: string | null;
+}
+
+export interface EffectiveSettings {
+  llm_enabled: boolean;
+  llm_provider: string;
+  llm_base_url: string;
+  llm_model: string;
+  llm_api_key: string;
+  llm_api_key_set: boolean;
+  llm_timeout: number;
+  llm_thinking: boolean;
+  llm_max_tokens: number;
+  llm_temperature: number;
+  rss_enabled: boolean;
+  rss_feeds: string;
+  rss_max_items: number;
+  sentiment_backend: string;
+  verishield_enabled: boolean;
+  lookback_days: number;
+  rolling_window: number;
+  estimation_window: number;
+  iforest_trees: number;
+  iforest_contamination: number;
+  news_penalty_strength: number;
+  tahta_modulation: number;
+}
+
+export interface ProviderPreset {
+  id: string;
+  label: string;
+  default_url: string;
+  needs_key: boolean;
+  hint: string;
+}
+
+export interface SettingsResponse {
+  current: EffectiveSettings;
+  overrides: Record<string, unknown>;
+  providers: ProviderPreset[];
+  store_path: string;
+  evren_terms: { supported: boolean; accepted: boolean | null; current_version?: number; error?: string };
+  llm_available: boolean;
 }
 
 export function defaultParams(): AnalyzeParams {
@@ -180,6 +227,40 @@ export async function fetchExplain(ticker: string, date: string | null, p: Analy
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ticker, date, params: p }),
+  });
+  return jsonOrThrow(res);
+}
+
+export async function fetchSettings(): Promise<SettingsResponse> {
+  return jsonOrThrow(await fetch("/api/settings"));
+}
+
+export async function saveSettings(patch: Record<string, unknown>): Promise<{ current: EffectiveSettings; llm_available: boolean }> {
+  const res = await fetch("/api/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  return jsonOrThrow(res);
+}
+
+export async function fetchModels(): Promise<{ models: { id: string; owned_by?: string; task?: string }[]; provider: string }> {
+  return jsonOrThrow(await fetch("/api/settings/models"));
+}
+
+export async function testLlm(): Promise<{ ok: boolean; message: string; terms_required?: boolean; version?: number; provider?: string; model?: string }> {
+  return jsonOrThrow(await fetch("/api/settings/llm/test", { method: "POST" }));
+}
+
+export async function fetchTerms(): Promise<{ supported?: boolean; accepted?: boolean; current_version?: number }> {
+  return jsonOrThrow(await fetch("/api/settings/terms"));
+}
+
+export async function acceptTerms(version: number): Promise<{ accepted_version: number }> {
+  const res = await fetch("/api/settings/terms/accept", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version }),
   });
   return jsonOrThrow(res);
 }

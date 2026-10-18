@@ -39,9 +39,13 @@ Haber sinyali iki eksende modellenir:
    motoru (6 kanal: metin, görsel, mekân-zaman, çapraz doğrulama, koordinasyon,
    resmi kaynak) **gömülü kütüphane** olarak kullanılır (git submodule, AGPL-3.0).
 2. **Polarite & şiddet:** Türkçe **BERT** duygu modeli (birincil) → **lexicon**
-   fallback → opsiyonel **yerel LLM** (Ollama) fallback.
+   fallback → opsiyonel **LLM** fallback.
 3. **RSS akışları:** BloombergHT ve CNN Türk Ekonomi canlı çekilir; haberler
-   BIST şirket adlarıyla otomatik eşleştirilir (37 ticker eşlemesi).
+   BIST şirket adlarıyla otomatik eşleştirilir (52 hisse eşlemesi).
+4. **Borsa dışı filtre:** magazin, spor, sağlık ve genel siyaset haberleri
+   elenir; yalnızca piyasa/ekonomi ve şirket haberleri analize girer
+   (`news/filters.py`). Bir haberde **şirket adının geçmesi yeterlidir**,
+   ticker kodu şart değildir.
 
 Etkin haber değeri: `news_value = polarite × güvenilirlik`. Bayesci sezgiyle,
 doğrulanmış ve hareketle **aynı yönde** bir haber şüpheyi düşürür; **çelişen**
@@ -82,13 +86,35 @@ cd frontend && npm run build
 
 | Sayfa | İçerik |
 |-------|--------|
-| 🔍 Şüpheli Hisseler | Sepet taraması; sıralanabilir skor tablosu, tahta bağlamı rozeti, CSV |
-| 📊 Hisse Analizi | TradingView `lightweight-charts` mum+hacim ve şüphe grafikleri (senkron, tıklanabilir gün seçimi), 6 KPI kartı, sinyal şelalesi, gerekçeler, eşleşen haberler |
-| 📰 Haber Akışı | RSS kartları; polarite/güvenilirlik/altyapı rozetleri |
-| 🤖 LLM Açıklama | Gün seçimi + yerel LLM yorumu; kural-tabanlı fallback |
-| ⚙️ Parametreler | 7 motor parametresi + 9 füzyon ağırlığı (canlı) |
+| 🔍 Şüpheli Hisseler | 52 hisselik sepet taraması; sıralanabilir skor tablosu, tahta bağlamı rozeti, CSV |
+| 📊 Hisse Analizi | TradingView `lightweight-charts` mum+hacim ve şüphe grafikleri (senkron, tıklanabilir gün seçimi), 6 KPI kartı, sinyal şelalesi, sade gerekçeler, eşleşen haberler (yoksa genel piyasa haberleri) |
+| 📰 Haber Akışı | Filtrelenmiş RSS kartları; kategori (hisse/piyasa/şirket) ve polarite/güvenilirlik rozetleri |
+| 🤖 LLM Açıklama | Gün seçimi + LLM yorumu (başlangıç seviyesine uygun dil); LLM yoksa kural-tabanlı gerekçeler |
+| ⚙️ Ayarlar | LLM sağlayıcı/model/API anahtarı/parametreler, bağlantı testi, şartlar onayı, RSS ayarları (`data/settings.local.json`) |
+| ⚙️ Parametreler | 7 motor parametresi + 9 füzyon ağırlığı (canlı) — varsayılanlar önerilir |
 
-API uçları: `GET /api/health|meta|analyze|news` · `POST /api/screener|explain`.
+Koyu/açık tema anahtarı üst çubuktan değiştirilir (tercih `localStorage`'da saklanır).
+
+API uçları: `GET /api/health|meta|analyze|news` · `POST /api/screener|explain` ·
+`GET|PUT /api/settings` · `GET /api/settings/models|terms` · `POST /api/settings/llm/test|terms/accept`.
+
+### LLM Sağlayıcı Yapılandırması
+
+LLM yorumu üç şekilde çalışır; hiçbiri zorunlu değildir (kural-tabanlı gerekçeler
+her zaman üretilir). Arayüzden **⚙️ Ayarlar** sayfasından seçilir, `.env` ile de
+verilebilir.
+
+| Sağlayıcı | Base URL | Not |
+|-----------|----------|-----|
+| `ollama` | `http://localhost:11434/v1` | Yerel, internet gerekmez (örn. `qwen2.5:3b-instruct`) |
+| `evren` | `https://evren-llmapi.ssyz.org.tr/v1` | EVREN LLM Gateway; `X-API-Key` + Bearer, kullanım şartları onayı gerekir |
+| `openai` | `https://api.openai.com/v1` | OpenAI uyumlu |
+| `custom` | elle | Herhangi bir OpenAI-uyumlu uç |
+
+Tekrarlı/döngülü çıktıya karşı `frequency_penalty`, `presence_penalty`, `top_p` ve
+çıktı temizliği (`clean_completion`: `think` blokları, yinelenen cümleler, n-gram
+döngü kesme) uygulanır. Uç nokta ayarları `.env` → `data/settings.local.json`
+sırasıyla geçersiz kılar (anahtar git'e girmez).
 
 **Alternatif (hızlı demo):** `PYTHONPATH=src .venv/bin/streamlit run app.py`
 
@@ -162,15 +188,18 @@ src/mars/
   ingestion.py     yfinance .IS + BIST100 + kapsam-farkındalıklı Parquet cache + takvim
   features.py      log getiri, MAD z, aralık, Amihud
   signals.py       normalize [0,1] sinyal montajı (+ sig_ml)
-  anomaly/         robust_stats (MCD), iforest, evt, changepoint
+  anomaly/         robust_stats (MCD), iforest, evt, changepoint, tahta
   models/          market_model (event study / CAR)
-  news/            sentiment (BERT+lexicon), llm (+açıklama), rss, tickers, verishield_adapter
+  news/            sentiment (BERT+lexicon), llm (çok sağlayıcılı), rss, tickers, filters
   fusion/          weighted (kısıtlı, gün-bazlı normalize), evidence (D-S), calibration
   ml.py            denetimli sınıflandırıcı (eğit/yükle/tahmin)
-  explain.py       katkı şelalesi + değer bazlı gerekçeler + doğal dil özeti
+  explain.py       katkı şelalesi + sade gerekçeler + doğal dil özeti
+  settings_store.py  arayüzden düzenlenebilen ayarlar (data/settings.local.json)
+  api.py           FastAPI uçları + SPA servisi (frontend/dist)
   pipeline.py      uçtan uca orkestrasyon
   experiments.py   baseline vs MARS, ablation, stres testi
-app.py             Streamlit terminal (4 sekme, trading-terminal teması)
+frontend/          React 18 + TS + Vite terminal arayüzü (6 sayfa, koyu/açık tema)
+app.py             Streamlit alternatifi (hızlı demo)
 notebooks/         Colab ML eğitim defteri
 scripts/           train_ml.py, run_experiments.py
 ```

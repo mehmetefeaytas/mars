@@ -117,10 +117,14 @@ class Settings:
     sentiment_backend: str = "auto"  # auto | bert | lexicon
     sentiment_model: str = "savasy/bert-base-turkish-sentiment-cased"
     llm_enabled: bool = False
-    llm_provider: str = "ollama"
+    llm_provider: str = "ollama"     # ollama | evren | openai | custom
     llm_base_url: str = "http://localhost:11434/v1"
-    llm_model: str = "qwen2.5:7b-instruct"
-    llm_timeout: int = 60
+    llm_model: str = "qwen2.5:3b-instruct"
+    llm_api_key: str = ""
+    llm_timeout: int = 180
+    llm_thinking: bool = False       # akil yuruten modellerde dusunmeyi kapat
+    llm_max_tokens: int = 1024
+    llm_temperature: float = 0.3
 
     # --- Füzyon ---
     weights: FusionWeights = field(default_factory=FusionWeights)
@@ -178,9 +182,29 @@ def load_settings(dotenv: Path | None = None) -> Settings:
     s.llm_provider = _env_str("MARS_LLM_PROVIDER", s.llm_provider)
     s.llm_base_url = _env_str("MARS_LLM_BASE_URL", s.llm_base_url)
     s.llm_model = _env_str("MARS_LLM_MODEL", s.llm_model)
+    s.llm_api_key = _env_str("MARS_LLM_API_KEY", s.llm_api_key)
+    s.llm_thinking = _env_bool("MARS_LLM_THINKING", s.llm_thinking)
+    s.llm_max_tokens = _env_int("MARS_LLM_MAX_TOKENS", s.llm_max_tokens)
+    s.llm_temperature = _env_float("MARS_LLM_TEMPERATURE", s.llm_temperature)
 
     s.news_penalty_strength = _env_float(
         "MARS_NEWS_PENALTY_STRENGTH", s.news_penalty_strength
     )
     s.tahta_modulation = _env_float("MARS_TAHTA_MODULATION", s.tahta_modulation)
+
+    # Arayuzden kaydedilen calisma-zamani ayarlari env'in uzerine uygula.
+    _apply_overrides(s)
     return s
+
+
+def _apply_overrides(s: Settings) -> None:
+    """`data/settings.local.json` icindeki kullanici ayarlarini uygular."""
+    try:
+        from .settings_store import load_overrides, store_path  # noqa: PLC0415
+
+        overrides = load_overrides(store_path())
+    except Exception:  # noqa: BLE001
+        return
+    for key, value in overrides.items():
+        if hasattr(s, key):
+            setattr(s, key, value)

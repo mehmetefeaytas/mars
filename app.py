@@ -742,15 +742,18 @@ def _tab_llm(params: dict, settings: Settings):
     st.markdown('<div class="card"><h3>LLM Yorumu</h3>', unsafe_allow_html=True)
     if st.button("✨ LLM ile Açıkla", type="primary", disabled=not llm_on):
         if not llm_available(s):
-            st.error("LLM'e ulaşılamadı. Ollama'yı başlatın: `ollama serve` ve "
-                     "`ollama pull qwen2.5:7b-instruct`")
+            st.error("LLM'e ulaşılamadı. Yerel Ollama için: `ollama serve` ve "
+                     "`ollama pull qwen2.5:3b-instruct`. Uzak sağlayıcı için Ayarlar sayfasını kullanın.")
         else:
             with st.spinner(f"{s.llm_model} yorumluyor…"):
-                text = explain_with_llm(payload, s)
+                try:
+                    text, err = explain_with_llm(payload, s)
+                except Exception as exc:  # noqa: BLE001
+                    text, err = None, str(exc)
             if text:
                 st.markdown(f'<div class="llm-box">{text}</div>', unsafe_allow_html=True)
             else:
-                st.warning("LLM yanıtı alınamadı.")
+                st.warning(f"LLM yanıtı alınamadı. {err or ''}")
     if not llm_on:
         st.caption("LLM kapalı — kenar çubuğundan açın (yerel Ollama, veri dışarı çıkmaz).")
     st.markdown("</div>", unsafe_allow_html=True)

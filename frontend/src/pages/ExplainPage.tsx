@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { ExplainResult, fetchExplain } from "../api";
 import { useApp } from "../state";
-import { Card, ErrorBox, Spinner, scoreColor } from "../components/ui";
+import { Card, ErrorBox, Spinner, scoreColor, Pill } from "../components/ui";
+import { useNavigate } from "react-router-dom";
 
 export default function ExplainPage(): JSX.Element {
   const { ticker, params } = useApp();
+  const navigate = useNavigate();
   const [date, setDate] = useState<string>("");
   const [result, setResult] = useState<ExplainResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,26 +26,31 @@ export default function ExplainPage(): JSX.Element {
 
   return (
     <>
-      <Card title="🤖 LLM ile Açıkla — günün yorumu">
-        <p style={{ fontSize: ".8rem", color: "var(--text-muted)", marginBottom: 14, lineHeight: 1.6 }}>
-          Seçilen günün sinyal verileri ve haber bilgileri yerel LLM'e (Ollama) gönderilir;
-          model, skoru <b>sayılarla gerekçelendirerek</b> Türkçe açıklar. LLM kapalıysa
-          kural-tabanlı açıklama gösterilir. Yorum bilgilendirme amaçlıdır — yatırım
+      <Card title="🤖 Bu sayfa ne yapar?">
+        <p className="hint">
+          Seçtiğiniz bir günde hissede <b>olağan dışı bir şey olup olmadığını</b> yapay
+          zekâ sayesinde sade bir Türkçeyle okursunuz. Yapay zekâ; grafik, hacim, endeks
+          karşılaştırması ve haberleri birlikte değerlendirip “bugün neden dikkat çekici?”
+          sorusunu <b>sayılarla</b> yanıtlar. Yorum bilgilendirme amaçlıdır, yatırım
           tavsiyesi değildir.
         </p>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
           <span className="mono" style={{ fontWeight: 800, fontSize: "1.1rem" }}>{ticker}</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
+            title="Boş bırakırsanız son işlem günü kullanılır"
           />
           <button className="btn" onClick={() => run(date || null)} disabled={loading}>
-            {loading ? "Analiz ediliyor…" : "Açıkla"}
+            {loading ? "Hazırlanıyor…" : "Açıkla"}
           </button>
+          <span className="tip" style={{ color: "var(--text-faint)", fontSize: ".72rem" }}>
+            Tarih boş bırakılırsa son işlem günü seçilir.
+          </span>
         </div>
         {error ? <ErrorBox message={error} /> : null}
-        {loading ? <Spinner label="Sinyaller hesaplanıyor ve LLM yorumluyor…" /> : null}
+        {loading ? <Spinner label="Veriler hazırlanıyor ve yapay zekâ yorumluyor…" /> : null}
       </Card>
 
       {result ? (
@@ -55,38 +62,48 @@ export default function ExplainPage(): JSX.Element {
                 <div className="value" style={{ color: scoreColor(result.suspicion) }}>
                   {result.suspicion.toFixed(0)}/100
                 </div>
+                <div className="sub">yüksek = daha dikkat çekici</div>
               </div>
               <div className="kpi">
                 <div className="label">Veri Güveni</div>
                 <div className="value">{result.data_confidence.toFixed(0)}/100</div>
+                <div className="sub">verinin ne kadarı mevcut</div>
               </div>
               <div className="kpi">
-                <div className="label">Açıklama Kaynağı</div>
+                <div className="label">Açıklamayı Kim Yazdı?</div>
                 <div className="value" style={{ fontSize: "1rem" }}>
-                  {result.llm_backend === "ollama" ? "🤖 Yerel LLM" : "📖 Kural-tabanlı"}
+                  {result.llm ? "🤖 Yapay zekâ" : "📖 Kural motoru"}
                 </div>
+                <div className="sub">{result.date}</div>
               </div>
             </div>
-            <p style={{ fontSize: ".88rem", lineHeight: 1.7 }}>{result.summary}</p>
+            <p style={{ fontSize: ".9rem", lineHeight: 1.75 }}>{result.summary}</p>
           </Card>
 
-          {result.llm ? (
-            <Card title="LLM Yorumu">
+          <Card title="🤖 Yapay Zekâ Yorumu">
+            {result.llm ? (
               <div className="llm-box">{result.llm}</div>
-            </Card>
-          ) : (
-            <Card title="LLM Yorumu">
-              <p style={{ fontSize: ".82rem", color: "var(--warn)" }}>
-                LLM kapalı veya erişilemez. Ollama'yı başlatın:
-                <code style={{ display: "block", marginTop: 8, fontFamily: "var(--mono)" }}>
-                  ollama serve && ollama pull qwen2.5:7b-instruct
-                </code>
-                Aşağıdaki kural-tabanlı gerekçeler her zaman görünürdür.
-              </p>
-            </Card>
-          )}
+            ) : (
+              <>
+                <p style={{ fontSize: ".86rem", color: "var(--warn)", lineHeight: 1.7 }}>
+                  Yapay zekâ yorumu alınamadı{result.llm_error ? `: ${result.llm_error}` : "."}{" "}
+                  Aşağıdaki “Gerekçeler” bölümü her durumda çalışır.
+                </p>
+                <div className="status-line">
+                  <button className="btn ghost sm" onClick={() => navigate("/settings")}>
+                    ⚙️ Ayarları aç
+                  </button>
+                  <Pill status="warn">Model seçin / anahtar girin</Pill>
+                </div>
+              </>
+            )}
+          </Card>
 
-          <Card title="Değer Bazlı Gerekçeler">
+          <Card title="📊 Gerekçeler (sayılarla, sade anlatım)">
+            <p className="hint" style={{ fontSize: ".72rem" }}>
+              Yapay zekâ yorumundan bağımsız olarak, skoru neyin yükselttiğini madde
+              madde gösterir. Yorum değişse bile bu gerekçeler hep aynı kurallarla üretilir.
+            </p>
             {result.reasons.map((r, idx) => (
               <div className="reason" key={idx}>
                 <div className="head">

@@ -39,14 +39,14 @@ _SIGNAL_TO_WEIGHT = {
 }
 
 _SIGNAL_LABELS = {
-    "sig_volume": "Hacim sapması",
-    "sig_index_divergence": "Endeksten kopuş",
-    "sig_volatility": "Oynaklık patlaması",
-    "sig_mahalanobis": "Çok değişkenli uzaklık",
-    "sig_isolation_forest": "Isolation Forest",
-    "sig_liquidity": "Likidite şoku",
-    "sig_ml": "ML şüphe olasılığı",
-    "sig_close_location": "Kapanış konumu (CLV)",
+    "sig_volume": "İşlem hacmi",
+    "sig_index_divergence": "Endeksten kopma",
+    "sig_volatility": "Fiyat oynaklığı",
+    "sig_mahalanobis": "Genel anormallik (MCD)",
+    "sig_isolation_forest": "Benzersiz hareket (iForest)",
+    "sig_liquidity": "Likidite",
+    "sig_ml": "Öğrenilmiş şüphe (ML)",
+    "sig_close_location": "Kapanış konumu",
     "sig_pump_pattern": "Çok günlük desen",
 }
 

@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { NewsItem, fetchNews } from "../api";
-import { Card, ErrorBox, Spinner } from "../components/ui";
+import { Card, ErrorBox, Spinner, Pill } from "../components/ui";
+
+const CATEGORY_LABEL: Record<string, string> = {
+  hisse: "hisse",
+  piyasa: "piyasa",
+  sirket: "şirket",
+  diger: "diğer",
+};
 
 export default function NewsPage(): JSX.Element {
   const [items, setItems] = useState<NewsItem[]>([]);
@@ -21,20 +28,26 @@ export default function NewsPage(): JSX.Element {
 
   return (
     <>
-      <Card title="RSS Haber Akışı — polarite ve güvenilirlik analizi">
-        <p style={{ fontSize: ".78rem", color: "var(--text-muted)", marginBottom: 12 }}>
-          BloombergHT + CNN Türk Ekonomi akışları. Polarite: lexicon/BERT hibrit ·
-          Güvenilirlik: VeriShield 6-kanal doğrulama motoru. Hisseyle eşleşen haberler
-          analizde haber düzeltmesini besler.
+      <Card title="📰 Borsa ve piyasa haberleri">
+        <p className="hint">
+          Yalnızca <b>borsa/ekonomi ile ilgili</b> haberler listelenir; magazin, spor
+          ve genel siyaset haberleri elenir. Haberler BloombergHT ve CNN Türk ekonomi
+          akışlarından alınır. “Duygu” haberin olumlu/olumsuz tonunu, “güvenilirlik”
+          ise kaynağın ne kadar sağlam olduğunu gösterir.
         </p>
-        {matched && Object.keys(matched).length ? (
-          <p style={{ fontSize: ".76rem", marginBottom: 10 }}>
-            <b style={{ color: "var(--accent)" }}>Eşleşen hisseler:</b>{" "}
-            {Object.entries(matched).map(([t, n]) => `${t} (${n})`).join(", ")}
-          </p>
+        {Object.keys(matched).length ? (
+          <div className="status-line">
+            <span style={{ color: "var(--text-muted)", fontSize: ".76rem" }}>Hisselerle eşleşenler:</span>
+            {Object.entries(matched).map(([t, n]) => (
+              <Pill key={t}>{t.replace(".IS", "")} · {n}</Pill>
+            ))}
+          </div>
         ) : null}
         {error ? <ErrorBox message={error} /> : null}
         {loading ? <Spinner label="Haberler çekiliyor ve analiz ediliyor…" /> : null}
+        {!loading && items.length === 0 ? (
+          <div className="empty">Şu an borsa ile ilgili haber bulunamadı.</div>
+        ) : null}
         {!loading &&
           items.map((n, idx) => (
             <div className="news-card" key={idx}>
@@ -47,13 +60,20 @@ export default function NewsPage(): JSX.Element {
               )}
               <div className="m">
                 <span>{n.source}</span>
-                <span>{n.timestamp ? new Date(n.timestamp).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }) : ""}</span>
+                <span>
+                  {n.timestamp
+                    ? new Date(n.timestamp).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" })
+                    : ""}
+                </span>
+                {n.category ? (
+                  <span className="badge b-cat">{CATEGORY_LABEL[n.category] ?? n.category}</span>
+                ) : null}
+                {n.ticker ? <span className="badge b-tahta">{n.ticker.replace(".IS", "")}</span> : null}
                 <span className={`badge ${n.polarity > 0.05 ? "b-pos" : n.polarity < -0.05 ? "b-neg" : "b-neu"}`}>
-                  {n.label.toUpperCase()} {n.polarity >= 0 ? "+" : ""}
+                  {n.label} {n.polarity >= 0 ? "+" : ""}
                   {n.polarity}
                 </span>
                 <span className="badge b-neu">güvenilirlik {n.credibility.toFixed(2)}</span>
-                <span className="badge b-neu">{n.sentiment_backend} / {n.credibility_backend}</span>
               </div>
             </div>
           ))}

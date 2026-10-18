@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Aciklanabilirlik — sinyal katki ayristirmasi ve dogal dil ozeti.
+"""Aciklanabilirlik — sinyal katki ayristirmasi ve sade dil ozeti.
+
+Bu modulun urettigi metinler bilincli olarak BASIT TUTULMUSTUR: okuyucunun
+istatistik bilgisi olmadigi varsayilir. Teknik terimler parantez icinde bir
+cumleyle aciklanir.
 
 Akademik dayanak:
   * Ribeiro, Singh, Guestrin (2016). LIME - yerel aciklanabilir temsiller.
   * Lundberg & Lee (2017). SHAP - katki degerleri.
-  * Dogrusal füzyon yapisindan katki paylari (waterfall) dogrudan hesaplanir;
-    iForest icin SHAP opsiyoneldir.
+  * Dogrusal füzyon yapisindan katki paylari (waterfall) dogrudan hesaplanir.
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ def contributions_row(fusion_row: pd.Series) -> pd.DataFrame:
 
 
 def waterfall(fusion_row: pd.Series, top_k: int = 5) -> list[dict]:
-    """Katki şelalesi: en etkili sinyaller (puan)."""
+    """Katki şelalesi: skoru en cok artiran sinyaller (puan)."""
     df = contributions_row(fusion_row).head(top_k)
     return [{"signal": r.signal, "points": round(r.points, 1)} for r in df.itertuples()]
 
@@ -40,18 +43,19 @@ def _fmt_pct(x: float) -> str:
 
 
 def _level(z: float) -> str:
+    """Sapma buyuklugunu sade kelimeyle ifade eder."""
     az = abs(z)
     if az < 1.5:
         return "normal"
     if az < 3:
-        return "yüksek"
+        return "biraz yüksek"
     if az < 5:
-        return "aşırı"
-    return "olağandışı"
+        return "yüksek"
+    return "çok yüksek"
 
 
 def detailed_reasons(signal_row: pd.Series, fusion_row: pd.Series) -> list[dict]:
-    """Her sinyal icin insan-okunur, DEGER BAZLI gerekce listesi uretir.
+    """Her sinyal icin sade dille, SAYIYA DAYALI gerekce listesi uretir.
 
     Args:
         signal_row: compute_signals ciktisindan bir gun (ham ozellikler + sinyaller).
@@ -68,26 +72,26 @@ def detailed_reasons(signal_row: pd.Series, fusion_row: pd.Series) -> list[dict]
     # --- Hacim ---
     vz = signal_row.get("vol_z")
     if vz is not None and np.isfinite(vz):
-        add("Hacim sapması",
-            f"İşlem hacmi, yaklaşık 60 günlük medyanına göre robust z = {vz:+.1f} "
-            f"({abs(vz):.1f} MAD birim sapma, {_level(vz)} seviye).",
+        yon = "üstünde" if vz > 0 else "altında"
+        add("İşlem hacmi",
+            f"Bugünkü alım-satım hacmi, son ~60 günün normal seviyesinin {abs(vz):.1f} adım "
+            f"{yon}. Bu sapmanın büyüklüğü: {_level(vz)}.",
             pts("sig_volume"), _level(vz))
 
     # --- Oynaklik ---
     vlt = signal_row.get("volatility_z")
     if vlt is not None and np.isfinite(vlt):
-        add("Oynaklık",
-            f"Son gün getirilerin oynaklığı, yuvarlanan pencereye göre robust z = {vlt:+.1f} "
-            f"({_level(vlt)} seviye).",
+        add("Fiyat oynaklığı",
+            f"Fiyatın gün içinde ne kadar sıçradığı (oynaklık), son dönemin normaline göre "
+            f"{_level(vlt)} seviyede.",
             pts("sig_volatility"), _level(vlt))
 
     # --- Likidite ---
     ilz = signal_row.get("illiquidity_z")
     if ilz is not None and np.isfinite(ilz):
-        add("Likidite (Amihud)",
-            f"Amihud illiquidity göstergesi robust z = {ilz:+.1f}; "
-            + ("birim hacim başına fiyat etkisi artmış (sığ tabla işareti)." if ilz > 1.5
-               else "olağan aralıkta."),
+        add("Likidite (alım-satım kolaylığı)",
+            "Hisse sığ: küçük bir alım-satım bile fiyatı normalden fazla oynatıyor."
+            if ilz > 1.5 else "Alım-satım kolaylığı olağan seviyede.",
             pts("sig_liquidity"), _level(ilz))
 
     # --- Endeks ayrisimasi (market model) ---
@@ -95,66 +99,71 @@ def detailed_reasons(signal_row: pd.Series, fusion_row: pd.Series) -> list[dict]
     lr = signal_row.get("log_ret")
     mr = signal_row.get("market_log_ret")
     if ar is not None and np.isfinite(ar):
-        parts = [f"Market modeline göre anormal getiri AR = {_fmt_pct(ar)}"]
+        parts = [f"Hisse, genel piyasanın (endeks) hareketiyle açıklanamayan {_fmt_pct(ar)} "
+                 "fazladan getiri üretti"]
         if lr is not None and np.isfinite(lr):
             mkt_txt = _fmt_pct(mr) if (mr is not None and np.isfinite(mr)) else "—"
             parts.append(f"(hisse {_fmt_pct(lr)}, endeks {mkt_txt})")
         parts.append(
-            "— hareket endeks hareketiyle açıklanamıyor."
-            if abs(ar) > 0.03 else "— hareket büyük ölçüde endeksle uyumlu."
+            "— hareket endeksten kopmuş." if abs(ar) > 0.03
+            else "— hareket büyük ölçüde endeksle uyumlu."
         )
-        add("Endeksten kopuş", " ".join(parts), pts("sig_index_divergence"),
+        add("Endeksten kopma", " ".join(parts), pts("sig_index_divergence"),
             _level(ar / 0.02))
 
     # --- MCD Mahalanobis ---
     mh = signal_row.get("sig_mahalanobis")
     if mh is not None and np.isfinite(mh):
+        yorum = ("normalin belirgin şekilde dışında." if mh > 0.8 else "normal aralıkta.")
         detail = (
-            f"5 boyutlu özellik uzayında robust Mahalanobis anomali olasılığı = {mh:.2f} "
-            + ("(gözlem, normal piyasa davranış bulutunun belirgin dışında)."
-               if mh > 0.8 else "(gözlem normal davranış bölgesinde).")
+            "Bugünkü hareket, hissenin normal davranış kalıbına ne kadar uymuyor? "
+            f"Uymama puanı {mh:.2f} ({yorum})"
         )
-        add("Çok değişkenli uzaklık (MCD)", detail,
+        add("Genel anormallik (MCD)", detail,
             pts("sig_mahalanobis"), _level((mh - 0.5) * 6))
 
     # --- Isolation Forest ---
     ifo = signal_row.get("sig_isolation_forest")
     if ifo is not None and np.isfinite(ifo):
+        yorum = ("normal günlerden kolayca ayırt ediliyor." if ifo > 0.8
+                 else "normal günlere benziyor.")
         detail = (
-            f"Ortalama izolasyon derinliğine göre anomali skoru = {ifo:.2f} "
-            + ("(normal gözlemlerden kısa yolda izole edildi)."
-               if ifo > 0.8 else "(normal izolasyon derinliğinde).")
+            "Hareket normal günlere ne kadar benzemiyor? "
+            f"Benzersizlik puanı {ifo:.2f} ({yorum})"
         )
-        add("Isolation Forest", detail,
+        add("Benzersiz hareket (iForest)", detail,
             pts("sig_isolation_forest"), _level((ifo - 0.5) * 6))
 
     # --- ML ---
     mlv = signal_row.get("sig_ml")
     if mlv is not None and np.isfinite(mlv):
-        add("ML şüphe olasılığı",
-            f"Eğitilmiş sınıflandırıcı şüphe olasılığı = {mlv:.2f} "
-            + "(sentetik pump/lijit senaryolarından öğrenildi).",
+        add("Öğrenilmiş şüphe (ML)",
+            f"Verilerle eğitilen modelin bu günü 'şüpheli' görme olasılığı {mlv:.2f} "
+            "(1'e yakın = daha şüpheli).",
             pts("sig_ml"), _level((mlv - 0.5) * 6))
 
     # --- Kapanis konumu (CLV) ---
     clv = signal_row.get("clv")
     if clv is not None and np.isfinite(clv):
-        loc = "aralığın tepesinde" if clv > 0.5 else "aralığın dibinde" if clv < -0.5 else "aralık ortasında"
-        add("Kapanış konumu (CLV)",
-            f"Gün içi aralıkta kapanış {loc} (CLV = {clv:+.2f}); "
-            + "kapanışa doğru fiyat itme (marking the close) izi."
-            if abs(clv) > 0.7 else "olağan kapanış konumu.",
+        loc = "günün en yüksek seviyelerine yakın" if clv > 0.5 else \
+              "günün en düşük seviyelerine yakın" if clv < -0.5 else "günün ortasında"
+        extra = (" Kapanışa doğru fiyatı yukarı itme izi var (alıcı baskısı)."
+                 if abs(clv) > 0.7 else " Kapanış konumu olağan.")
+        add("Kapanış konumu",
+            f"Gün kapanışı {loc} (kapanış gücü {clv:+.2f})." + extra,
             pts("sig_close_location"), _level(abs(clv) * 4))
 
     # --- Cok gunlu desen ---
     car5 = signal_row.get("car5")
     streak = signal_row.get("up_streak")
     if car5 is not None and np.isfinite(car5):
-        streak_txt = f", {int(streak)} günlük aynı-yön serisi" if streak is not None and np.isfinite(streak) else ""
+        yon = "yukarı" if car5 > 0 else "aşağı"
+        streak_txt = (f", üst üste {int(streak)} gün aynı yönde" 
+                      if streak is not None and np.isfinite(streak) and streak >= 2 else "")
         add("Çok günlük desen",
-            f"Son 5 günün kümülatif anormal getirisi CAR₅ = {_fmt_pct(car5)}{streak_txt}; "
-            + ("kalıcı, hacimle beslenen bir ayrışma deseni." if abs(car5) > 0.08
-               else "kalıcı desen zayıf."),
+            f"Son 5 günün toplam anormal getirisi {_fmt_pct(car5)} ({yon}{streak_txt}). "
+            + ("Birkaç gündür süren, hacimle beslenen bir hareket var."
+               if abs(car5) > 0.08 else "Sürekli bir desen zayıf."),
             pts("sig_pump_pattern"), _level(abs(car5) / 0.04))
 
     # --- Tahta baglami ---
@@ -162,9 +171,10 @@ def detailed_reasons(signal_row: pd.Series, fusion_row: pd.Series) -> list[dict]
     prior = signal_row.get("tahta_prior")
     if tier is not None and tier != "" and prior is not None and np.isfinite(prior):
         add("Tahta bağlamı (likidite)",
-            f"Hisse {tier} likidite katmanında (tahta riski önseli {prior:.2f}); "
-            + ("hacim sinyali bu bağlamda aşırlıyor." if prior < 0.4
-               else "hacim sinyali tam ağırlığında."),
+            f"Bu hisse '{tier}' likidite grubunda. "
+            + ("Çok alıcılı/satıcılı bir tahta olduğu için hacim sinyali kısılıyor; "
+               "hareket daha büyük olmalı ki dikkat çeksin."
+               if prior < 0.4 else "Hacim sinyali tam ağırlıkta değerlendiriliyor."),
             0.0, "bağlam")
 
     reasons.sort(key=lambda r: -r["points"])
@@ -178,21 +188,26 @@ def summarize_day(
     signal_row: pd.Series | None = None,
     top_k: int = 3,
 ) -> str:
-    """Bir gun icin insan-okunur aciklama (zengin metin)."""
+    """Bir gun icin sade dilde ozet (otomatik uretilir, LLM'siz de calisir)."""
     suspicion = float(fusion_row.get("suspicion", 0.0))
     data_conf = float(fusion_row.get("data_confidence", 0.0))
     wf = waterfall(fusion_row, top_k=top_k)
     parts = []
     head = f"{date.date() if date is not None else ''}".strip()
-    parts.append(f"{head} Şüphe skoru {suspicion:.0f}/100 (veri güveni {data_conf:.0f}/100).")
+    parts.append(f"{head} için şüphe skoru {suspicion:.0f}/100 (veri güveni {data_conf:.0f}/100).")
 
-    band = ("düşük" if suspicion < 35 else "orta" if suspicion < 65 else "yüksek")
-    parts.append(f"Risk bandı: {band}.")
+    if suspicion < 35:
+        band = "Düşük: bugün sıra dışı bir şey görünmüyor."
+    elif suspicion < 65:
+        band = "Orta: dikkat çeken, ama kesin olmayan işaretler var."
+    else:
+        band = "Yüksek: birden çok işaret aynı yönde."
+    parts.append(band)
 
     if wf:
         parts.append(
-            "Öne çıkan sinyaller: "
-            + ", ".join(f"{w['signal']} (+{w['points']})" for w in wf)
+            "Skoru en çok artıranlar: "
+            + ", ".join(f"{w['signal']} (+{w['points']} puan)" for w in wf)
             + "."
         )
     if signal_row is not None:
@@ -203,20 +218,16 @@ def summarize_day(
     factor = float(fusion_row.get("news_factor", 1.0))
     notes = fusion_row.get("news_notes", [])
     if factor < 0.999 and notes:
-        parts.append("Dengeleyici faktör: " + " ".join(notes[:2]))
+        parts.append("Haber skoru düşürdü: " + " ".join(notes[:2]))
     elif factor > 1.001 and notes:
-        parts.append("Artırıcı faktör: " + " ".join(notes[:2]))
+        parts.append("Haber skoru artırdı: " + " ".join(notes[:2]))
     else:
-        parts.append("Eş zamanlı doğrulanmış haber desteği bulunmuyor.")
+        parts.append("Skoru açıklayan doğrulanmış bir haber bulunmuyor.")
     return " ".join(parts)
 
 
 def shap_iforest_contributions(model, X: np.ndarray, index: int) -> dict[int, float] | None:
-    """Opsiyonel: iForest icin SHAP degerleri (shap kuruluysa).
-
-    shap agir bir bagimliliktir; yoksa None dondurur ve sistem dogrusal katki
-    paylarina dayanmaya devam eder.
-    """
+    """Opsiyonel: iForest icin SHAP degerleri (shap kuruluysa)."""
     try:
         import shap  # noqa: PLC0415
 
