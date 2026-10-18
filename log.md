@@ -10,3 +10,8 @@
 | 2026-10-18 | 12:05 | Karar toplantisi: veri kaynagi, VeriShield entegrasyonu, matematik kapsami, duygu modeli, dil | — | yfinance+arsiv; gomulu kutuphane (AGPL); katmanli cekirdek+ileri; hibrit BERT+LLM; TR dokuman + EN kod |
 | 2026-10-18 | 12:10 | Faz 0 basladi: repo iskelesi, pyproject/requirements, .gitignore, .env.example | `pyproject.toml`, `requirements.txt`, `.gitignore`, `.env.example` | Ortam tanimlari hazir |
 | 2026-10-18 | 12:12 | log.md ve academic.md olusturuldu | `log.md`, `academic.md` | Surdurulebilir kayit altyapisi kuruldu |
+| 2026-10-18 | 12:30 | Faz 0 tamamlandi; verishield-core submodule eklendi; embedded skorlama test edildi | `vendor/verishield-core`, `pyproject.toml` | Commit + push yapildi (master) |
+| 2026-10-18 | 12:40 | Ortam kuruldu (Python 3.12 venv, uv) | `.venv` | Cekirdek bagimliliklar yuklendi |
+| 2026-10-18 | 12:55 | Faz 1: ingestion yazildi (yfinance .IS, cache, takvim hizalama) + sentetik uretici | `src/mars/ingestion.py`, `src/mars/synthetic.py` | THYAO.IS gercek verisiyle dogrulandi (249 gun) |
+| 2026-10-18 | 13:05 | Faz 2: robust ozellikler (log getiri, MAD z, aralik, Amihud) | `src/mars/features.py` | Hazir |
+| 2026-10-18 | 13:20 | Faz 3: anomali cekirdek (MCD-Mahalanobis, Isolation Forest, market-model CAR) + sinyal montaji | `src/mars/anomaly/`, `src/mars/models/market_model.py`, `src/mars/signals.py` | Sentetik enjeksiyonlar net ayristi (hacim 1.0, endeks 0.98) |
