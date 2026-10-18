@@ -9,7 +9,7 @@ import {
   AreaData,
   UTCTimestamp,
 } from "lightweight-charts";
-import { Analysis, fetchAnalysis } from "../api";
+import { Analysis, Reason, fetchAnalysis, fetchExplain } from "../api";
 import { useApp } from "../state";
 import { useTheme } from "../useTheme";
 import { Card, ErrorBox, Spinner, fmtPct, scoreColor } from "../components/ui";
@@ -175,6 +175,7 @@ export default function AnalysisPage(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dayIdx, setDayIdx] = useState<number | null>(null);
+  const [dayReasons, setDayReasons] = useState<Reason[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -188,11 +189,34 @@ export default function AnalysisPage(): JSX.Element {
       .finally(() => setLoading(false));
   }, [ticker, params]);
 
+  const selIdx = dayIdx ?? (analysis ? analysis.dates.length - 1 : 0);
+  const isLastDay = analysis ? selIdx === analysis.dates.length - 1 : true;
+
+  useEffect(() => {
+    if (!analysis) return;
+    if (isLastDay) {
+      setDayReasons(analysis.reasons);
+      return;
+    }
+    let alive = true;
+    const date = analysis.dates[selIdx];
+    fetchExplain(analysis.ticker, date, params, false)
+      .then((r) => {
+        if (alive) setDayReasons(r.reasons);
+      })
+      .catch(() => {
+        if (alive) setDayReasons([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [analysis, selIdx, isLastDay, params]);
+
   if (loading) return <Spinner label={`${ticker} inceleniyor…`} />;
   if (error) return <ErrorBox message={`${ticker}: ${error}`} />;
   if (!analysis) return <div className="empty">Analiz için bir hisse seçin.</div>;
 
-  const i = dayIdx ?? analysis.dates.length - 1;
+  const i = selIdx;
   const last = analysis.dates.length - 1;
   const suspicion = analysis.suspicion[i] ?? 0;
   const prevSuspicion = i > 0 ? analysis.suspicion[i - 1] ?? suspicion : suspicion;
@@ -200,10 +224,23 @@ export default function AnalysisPage(): JSX.Element {
   const ar = analysis.abnormal_ret[i];
   const newsFactor = analysis.news_factor[i] ?? 1;
 
+  const catalog: Record<string, { short: string; title: string; what: string }> = {};
+  analysis.signals_catalog.forEach((s) => {
+    catalog[s.key] = s;
+  });
+
   const contribs = Object.entries(analysis.contributions)
-    .map(([k, arr]) => ({ key: k.replace("contrib_sig_", "").replace(/_/g, " "), pts: arr[i] ?? 0 }))
+    .map(([k, arr]) => {
+      const key = k.replace("contrib_sig_", "");
+      return { key, label: catalog[key]?.short ?? key.replace(/_/g, " "), title: catalog[key]?.title ?? "", pts: arr[i] ?? 0 };
+    })
     .filter((c) => c.pts > 0.05)
     .sort((a, b) => b.pts - a.pts);
+
+  const contextReasons = dayReasons.filter((r) => r.level === "bağlam");
+  const scoredReasons = dayReasons
+    .filter((r) => r.level !== "bağlam")
+    .sort((a, b) => b.points - a.points)
 
   const kpis: { label: string; value: string; sub?: string; color?: string }[] = [
     {
@@ -283,13 +320,15 @@ export default function AnalysisPage(): JSX.Element {
 
       <div className="grid-2" style={{ marginTop: 14 }}>
         <Card title={`Skoru En Çok Artıranlar — ${analysis.dates[i]}`}>
-          <p className="hint" style={{ fontSize: ".72rem" }}>
-            Bir çubuğun uzunluğu, o sinyalin şüphe skoruna <b>kaç puan</b> eklediğini gösterir.
+          <p className="hint" style={{ fontSize: ".74rem" }}>
+            Şüphe skoru 100 üzerinden hesaplanan bir puandır. Aşağıdaki her çubuk, o sinyalin
+            skora <b>kaç puan eklediğini</b> gösterir; çubuk ne kadar uzunsa o gün skoru o kadar
+            çok yükseltmiştir. Örneğin <b>+17.3</b>, o sinyalin skora 17.3 puan kattığı anlamına gelir.
           </p>
           {contribs.length ? (
             contribs.map((c) => (
-              <div className="sig-row" key={c.key}>
-                <span className="name">{c.key}</span>
+              <div className="sig-row" key={c.key} title={c.title}>
+                <span className="name">{c.label}</span>
                 <div className="bar">
                   <div className="fill" style={{ width: `${Math.min(100, (c.pts / 25) * 100)}%` }} />
                 </div>
@@ -301,13 +340,13 @@ export default function AnalysisPage(): JSX.Element {
           )}
         </Card>
 
-        <Card title="Neden Bu Skor? (sayılarla)">
+        <Card title="Neden Bu Skor? (kısa özet)">
           {i === last && analysis.reasons.length ? (
             analysis.reasons.map((r, idx) => (
               <div className="reason" key={idx}>
                 <div className="head">
                   <b>{r.signal}</b>
-                  <span className="pts">+{r.points}</span>
+                  <span className="pts">{r.points > 0 ? `+${r.points}` : "—"}</span>
                 </div>
                 <p>{r.detail}</p>
               </div>
@@ -317,12 +356,59 @@ export default function AnalysisPage(): JSX.Element {
               {analysis.summary}
               <br /><br />
               <span style={{ color: "var(--text-faint)" }}>
-                Seçtiğiniz güne özel açıklama için <b>LLM Açıklama</b> sayfasını kullanın.
+                Seçtiğiniz güne özel açıklama için aşağıdaki <b>“Bu sinyaller ne anlama
+                geliyor?”</b> listesini ya da <b>LLM Açıklama</b> sayfasını kullanın.
               </span>
             </p>
           )}
         </Card>
       </div>
+
+      {scoredReasons.length || contextReasons.length ? (
+        <Card
+          title={`Bu Sinyaller Ne Anlama Geliyor? — ${analysis.dates[i]}`}
+        >
+          <p className="hint" style={{ fontSize: ".74rem" }}>
+            Her sinyal için üç şey yazıyor: <b>neyi ölçtüğü</b>, o gün <b>ne olduğu</b>
+            (gerçek sayılarla) ve bunun skora <b>kaç puan</b> eklediği. İstatistik bilgisi
+            gerektirmez; terimler parantez içinde açıklanır.
+          </p>
+          {scoredReasons.map((r) => (
+            <div className="reason" key={r.key}>
+              <div className="head">
+                <b>{r.title}</b>
+                <span className="pts">{r.points > 0 ? `+${r.points} puan` : "puan katmadı"}</span>
+              </div>
+              <p>{r.detail}</p>
+              {r.what ? (
+                <p className="what">
+                  <b>Bu ne demek?</b> {r.what}
+                </p>
+              ) : null}
+            </div>
+          ))}
+          {contextReasons.map((r) => (
+            <div className="context-note" key={r.key}>
+              <div className="head" style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 3 }}>
+                <b>{r.title}</b>
+                <span className="tag">puan üretmez, ayar</span>
+              </div>
+              <p>{r.detail}</p>
+              {r.what ? (
+                <p className="what" style={{ marginTop: 6 }}>
+                  <b>Bu ne demek?</b> {r.what}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </Card>
+      ) : (
+        <Card title="Bu Sinyaller Ne Anlama Geliyor?">
+          <p className="hint" style={{ fontSize: ".72rem" }}>
+            Bu gün için ayrıntılı gerekçe üretilemedi; özet yukarıdaki kartta yer alıyor.
+          </p>
+        </Card>
+      )}
 
       {analysis.news.length ? (
         <Card

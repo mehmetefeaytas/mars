@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 
 from . import __version__
 from .config import FusionWeights, Settings, load_settings
-from .explain import detailed_reasons, summarize_day, waterfall
+from .explain import detailed_reasons, signal_catalog, summarize_day, waterfall
 from .fusion.weighted import fuse
 from .news.analyzer import analyze_news
 from .news.filters import filter_market_news, market_category
@@ -101,6 +101,7 @@ class ExplainRequest(BaseModel):
     ticker: str
     date: str | None = None
     params: AnalyzeParams = AnalyzeParams()
+    use_llm: bool = True
 
 
 class SettingsPatch(BaseModel):
@@ -345,6 +346,7 @@ def _run_analysis(ticker: str, params: AnalyzeParams, settings: Settings) -> dic
         "news_is_general": news_is_general,
         "summary": summarize_day(frow, date=frame.index[-1], signal_row=srow),
         "waterfall": waterfall(frow, top_k=9),
+        "signals_catalog": signal_catalog(),
         "reasons": detailed_reasons(srow, frow),
     }
     _cache.set(cache_key, payload)
@@ -460,7 +462,7 @@ def api_news(limit: int = 60) -> dict:
 def api_explain(req: ExplainRequest) -> dict:
     settings = _settings_from(req.params)
     cache_key = ("explain", req.ticker.upper(), req.date, req.params.model_dump_json(),
-                 settings.llm_model, settings.llm_provider)
+                 settings.llm_model, settings.llm_provider, req.use_llm)
     cached = _cache.get(cache_key)
     if cached is not None:
         return cached
@@ -494,7 +496,7 @@ def api_explain(req: ExplainRequest) -> dict:
 
     llm_text = None
     llm_error = None
-    if settings.llm_enabled:
+    if settings.llm_enabled and req.use_llm:
         lr = srow.get("log_ret", float("nan"))
         ar = srow.get("abnormal_ret", float("nan"))
         llm_payload = {

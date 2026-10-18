@@ -22,7 +22,10 @@ export interface AnalyzeParams {
 }
 
 export interface Reason {
+  key: string;
   signal: string;
+  title: string;
+  what: string;
   detail: string;
   points: number;
   level: string;
@@ -30,7 +33,17 @@ export interface Reason {
 
 export interface WaterfallItem {
   signal: string;
+  key: string;
+  title: string;
   points: number;
+}
+
+export interface SignalInfo {
+  key: string;
+  column: string;
+  short: string;
+  title: string;
+  what: string;
 }
 
 export interface NewsBrief {
@@ -71,6 +84,7 @@ export interface Analysis {
   news_is_general: boolean;
   summary: string;
   waterfall: WaterfallItem[];
+  signals_catalog: SignalInfo[];
   reasons: Reason[];
 }
 
@@ -222,11 +236,16 @@ export async function fetchNews(limit = 60): Promise<{ items: NewsItem[]; matche
   return jsonOrThrow(await fetch(`/api/news?limit=${limit}`));
 }
 
-export async function fetchExplain(ticker: string, date: string | null, p: AnalyzeParams): Promise<ExplainResult> {
+export async function fetchExplain(
+  ticker: string,
+  date: string | null,
+  p: AnalyzeParams,
+  useLlm = true,
+): Promise<ExplainResult> {
   const res = await fetch("/api/explain", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ticker, date, params: p }),
+    body: JSON.stringify({ ticker, date, params: p, use_llm: useLlm }),
   });
   return jsonOrThrow(res);
 }

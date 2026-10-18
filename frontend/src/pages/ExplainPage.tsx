@@ -102,15 +102,22 @@ export default function ExplainPage(): JSX.Element {
           <Card title="📊 Gerekçeler (sayılarla, sade anlatım)">
             <p className="hint" style={{ fontSize: ".72rem" }}>
               Yapay zekâ yorumundan bağımsız olarak, skoru neyin yükselttiğini madde
-              madde gösterir. Yorum değişse bile bu gerekçeler hep aynı kurallarla üretilir.
+              madde gösterir. Her satırda <b>neyi ölçtüğü</b>, o gün <b>ne olduğu</b> ve
+              bunun skora <b>kaç puan</b> eklediği yazıyor. Yorum değişse bile bu
+              gerekçeler hep aynı kurallarla üretilir.
             </p>
             {result.reasons.map((r, idx) => (
-              <div className="reason" key={idx}>
+              <div className="reason" key={r.key ?? idx}>
                 <div className="head">
-                  <b>{r.signal}</b>
-                  <span className="pts">+{r.points}</span>
+                  <b>{r.title ?? r.signal}</b>
+                  <span className="pts">{r.points > 0 ? `+${r.points} puan` : r.level === "bağlam" ? "ayar" : "—"}</span>
                 </div>
                 <p>{r.detail}</p>
+                {r.what ? (
+                  <p className="what">
+                    <b>Bu ne demek?</b> {r.what}
+                  </p>
+                ) : null}
               </div>
             ))}
           </Card>

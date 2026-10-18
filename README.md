@@ -53,6 +53,23 @@ güvenilir haber hafifçe artırır; düşük güvenilirlikli söylenti nötr ka
 VeriShield bulunamazsa yerel sezgisel bir güvenilirlik skorlayıcı devreye girer;
 sistem yine çalışır.
 
+## Skorun Açıklanması (sıfır bilgiyle okunabilir)
+
+Skoru artıran her sinyal, arayüzde üç katmanlı anlatılır — istatistik bilgisi
+gerektirmez (`src/mars/explain.py`):
+
+1. **Neyi ölçtüğü:** örn. *“Endeksten kopma — hisse genel piyasadan ayrıştı mı?
+   Bütün hisseler az çok birlikte hareket eder; bu sinyal hissenin kendi başına
+   yaptığı ekstra hareketi ölçer.”*
+2. **O gün ne olduğu:** gerçek sayıyla — *“Hisse, genel piyasanın hareketiyle
+   açıklanamayan %+9.2 fazladan getiri üretti (hisse %+9.5, endeks %+0.5)”*
+3. **Kaç puan eklediği:** *“+17.3 puan”* (şüphe skoru 100 üzerinden).
+
+Teknik adlar (MCD, iForest, market model, CLV) parantez içinde sade dille
+açıklanır. Tahta bağlamı gibi **puan üretmeyen ayarlar** ayrı ve “puan üretmez,
+ayar” etiketiyle gösterilir. Metinler `signal_catalog()` üzerinden tek kaynaktan
+gelir; arayüz ve LLM aynı katalogu kullanır.
+
 ## Denetimli ML Katmanı
 
 Etiket şeması: `pump`/`subtle` → şüpheli, `news_legit` → meşru (kontrollü sentetik).
@@ -87,7 +104,7 @@ cd frontend && npm run build
 | Sayfa | İçerik |
 |-------|--------|
 | 🔍 Şüpheli Hisseler | 52 hisselik sepet taraması; sıralanabilir skor tablosu, tahta bağlamı rozeti, CSV |
-| 📊 Hisse Analizi | TradingView `lightweight-charts` mum+hacim ve şüphe grafikleri (senkron, tıklanabilir gün seçimi), 6 KPI kartı, sinyal şelalesi, sade gerekçeler, eşleşen haberler (yoksa genel piyasa haberleri) |
+| 📊 Hisse Analizi | TradingView `lightweight-charts` mum+hacim ve şüphe grafikleri (senkron, tıklanabilir gün seçimi), 6 KPI kartı, sinyal şelalesi, **her sinyal için “ne demek / o gün ne oldu / kaç puan” açıklamaları**, eşleşen haberler (yoksa genel piyasa haberleri) |
 | 📰 Haber Akışı | Filtrelenmiş RSS kartları; kategori (hisse/piyasa/şirket) ve polarite/güvenilirlik rozetleri |
 | 🤖 LLM Açıklama | Gün seçimi + LLM yorumu (başlangıç seviyesine uygun dil); LLM yoksa kural-tabanlı gerekçeler |
 | ⚙️ Ayarlar | LLM sağlayıcı/model/API anahtarı/parametreler, bağlantı testi, şartlar onayı, RSS ayarları (`data/settings.local.json`) |

@@ -269,10 +269,29 @@ a { color: var(--accent); text-decoration: none; }
   border-left: 3px solid var(--border-strong); padding: 8px 12px; margin-bottom: 8px;
   background: var(--surface-2); border-radius: 0 10px 10px 0;
 }
-.reason .head { display: flex; justify-content: space-between; margin-bottom: 3px; }
+.reason .head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 3px; }
 .reason .head b { font-size: 0.84rem; }
-.reason .head .pts { font-family: var(--mono); color: var(--accent); font-weight: 700; font-size: 0.8rem; }
-.reason p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+.reason .head .pts { font-family: var(--mono); color: var(--accent); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+.reason p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.55; }
+.reason p.what {
+  font-size: 0.72rem; color: var(--text-faint); line-height: 1.6; margin-top: 6px;
+  border-top: 1px dashed var(--border); padding-top: 6px;
+}
+.reason p.what b { color: var(--text-muted); font-weight: 700; }
+
+/* ---- Ayrac / bolum basligi ---- */
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0 12px; }
+.subhead { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.context-note {
+  border-left: 3px solid var(--warn); background: var(--surface-2);
+  border-radius: 0 10px 10px 0; padding: 8px 12px; margin-bottom: 8px;
+}
+.context-note .head b { font-size: 0.82rem; }
+.context-note .head .tag {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--warn); border: 1px solid var(--warn); border-radius: 999px; padding: 1px 8px;
+}
+.context-note p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.55; }
 
 /* ---- LLM kutusu ---- */
 .llm-box {
