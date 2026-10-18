@@ -17,3 +17,8 @@
 | 2026-10-18 | 13:20 | Faz 3: anomali cekirdek (MCD-Mahalanobis, Isolation Forest, market-model CAR) + sinyal montaji | `src/mars/anomaly/`, `src/mars/models/market_model.py`, `src/mars/signals.py` | Sentetik enjeksiyonlar net ayristi (hacim 1.0, endeks 0.98) |
 | 2026-10-18 | 13:45 | Faz 4: haber modulu (kaynak semasi, hibrit BERT/lexicon duygu, LLM kopru, VeriShield adaptor) | `src/mars/news/` | Embedded VeriShield skoru alindi; lexicon duygu dogrulandi |
 | 2026-10-18 | 14:05 | Faz 5: füzyon (kisitli agirlikli + Dempster-Shafer), kalibrasyon, aciklanabilirlik + pipeline/CLI | `src/mars/fusion/`, `src/mars/explain.py`, `src/mars/pipeline.py`, `src/mars/cli.py` | Enjeksiyon suphesi 71-81 vs taban 16; DS enjeksiyon 100; haber duzeltmesi 71.6->58.4 |
+| 2026-10-18 | 14:30 | Faz 7: ileri yontemler (EVT POT/GPD, BOCPD) | `src/mars/anomaly/evt.py`, `src/mars/anomaly/changepoint.py` | EVT enjeksiyonda 0.98; BOCPD 4-5 sigma kaymayi 0.94-1.0 tespit |
+| 2026-10-18 | 14:50 | Faz 6: deney modulu (baseline vs MARS, ablation, stres testi) | `src/mars/experiments.py` | Ince senaryoda MARS 0.974 > tekil 0.875 (AUC) |
+| 2026-10-18 | 15:05 | Streamlit arayuzu | `app.py` | Gercek+sentetik mod, risk karti, selale grafigi |
+| 2026-10-18 | 15:20 | Test paketi yazildi ve duzeltildi (34 test) | `tests/` | Tum testler gecti (`pytest -q`) |
+| 2026-10-18 | 15:30 | Deney scripti + sonuc raporu, README, academic bulgular | `scripts/run_experiments.py`, `docs/results.md`, `README.md` | Fazlar 6-8 commit + push |

@@ -68,13 +68,38 @@ guvenilirlikli soylentide notr kalir, celisen guvenilir haberde supheyi artirir.
 | Duygu modeli | Hibrit BERT + LLM fallback | Cevrimdisi determinizm + zor orneklerde esneklik |
 | Dil | TR dokuman, EN kod | Ekip icin okunabilirlik + uluslararasi kod standarti |
 
-## 5. Deneysel Bulgular (doldurulacak)
+## 5. Deneysel Bulgular
 
-- Baseline (tekil esik) vs MARS cok boyutlu: yanlis pozitif orani ...
-- Ablation: sinyal katki paylari ...
-- Sentetik stres testi: ...
-- Ground truth bulunmadigindan uydurma F1 raporlanmayacak; denetimsiz metrikler
-  ve sentetik senaryolar kullanilacak.
+Tum metrikler SENTETIK senaryolardan turetilmistir (kontrollu karsilastirma);
+gercek dunya dogrulanmis tespit basarisi degildir. Ayrinti: `docs/results.md`.
+
+**Yontem karsilastirmasi (ROC-AUC, 10 seed):**
+
+| Senaryo | Baseline (tekil hacim) | MARS (agirlikli) | MARS (D-S) |
+|---------|------------------------|------------------|------------|
+| pump (belirgin hacim sıçraması) | 1.000 | 1.000 | 0.986 |
+| news_legit (meşru hareket) | 0.993 | 1.000 | 0.977 |
+| subtle (sığ tahta, ince) | 0.875 | **0.974** | 0.910 |
+
+Kritik bulgu: Belirgin hacim sıçramalarında tekil esik yeterlidir. Ancak ince/sığ
+tahta senaryosunda tekil hacim sinyali zayiflar (AUC 0.875); cok boyutlu MARS
+füzyonu (AUC 0.974) anlamli sekilde daha iyi ayristirir. Bu, MARS'in temel
+motivasyonunu (tekil gosterge yanilgisi) destekler.
+
+**Ablation (pump, ortalama suphe dususu):**
+sig_volume (25.0) > sig_index_divergence (17.8) > sig_mahalanobis (15.0) >
+sig_isolation_forest (8.9) > sig_volatility (5.6) > sig_liquidity (0.8).
+Yani hacim, endeks ayrisimasi ve robust cok degiskenli uzaklik en yuksek katkiyi
+saglar; bu, sinyal setinin tasarimini dogrular.
+
+**Haber duzeltmesi:** Guvenilir (KAP) pozitif haber, hareketle ayni yonde oldugunda
+supheyi ornekte %18 dusurdu (71.6 -> 58.4; haber faktoru 0.81).
+
+**EVT:** Sentetik kalin-kuyruk (Student-t, df=4) serisinde enjekte edilen -%15
+getiri EVT kuyruk sinyalinde 0.98 uretti (taban ortalama 0.05).
+
+**BOCPD:** 3-4 sigma buyuklugundeki ortalama kaymalarini (200. gun) 0.94-1.00
+olasilikla tespit etti; 2 sigma kaymayi (beklenildigi gibi) tespit etmedi.
 
 ## 6. Acik Sorular
 
