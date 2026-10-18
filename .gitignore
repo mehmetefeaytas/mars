@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Veri (buyuk arsivler commit edilmez; data/sample haric)
+data/raw/
+data/processed/
+*.parquet
+*.db
+*.sqlite
+
+# Ortam
+.env
+
+# macOS
+.DS_Store
+
+# Notebook checkpoints
+.ipynb_checkpoints/

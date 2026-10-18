@@ -1,0 +1,3 @@
+[submodule "vendor/verishield-core"]
+	path = vendor/verishield-core
+	url = https://github.com/mehmetefeaytas/verishield-core
