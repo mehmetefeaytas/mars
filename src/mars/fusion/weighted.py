@@ -34,6 +34,8 @@ _SIGNAL_TO_WEIGHT = {
     "sig_isolation_forest": "isolation_forest",
     "sig_liquidity": "liquidity",
     "sig_ml": "ml",
+    "sig_close_location": "close_location",
+    "sig_pump_pattern": "pump_pattern",
 }
 
 _SIGNAL_LABELS = {
@@ -44,6 +46,8 @@ _SIGNAL_LABELS = {
     "sig_isolation_forest": "Isolation Forest",
     "sig_liquidity": "Likidite şoku",
     "sig_ml": "ML şüphe olasılığı",
+    "sig_close_location": "Kapanış konumu (CLV)",
+    "sig_pump_pattern": "Çok günlük desen",
 }
 
 
@@ -114,6 +118,35 @@ def _news_adjustment(
     return factor, confirmed, reasons
 
 
+def _apply_tahta_modulation(
+    w: np.ndarray, cols: list[str], signal_frame: pd.DataFrame, settings: Settings
+) -> np.ndarray:
+    """Likidite baglamina gore hacim/likidite agirliklarini asirir.
+
+    Aggarwal & Wu (2006) / Khwaja & Mian (2005): tahtacilik sig tahtalarda
+    kolaylasir. Derin/mega likit bir hissede (dusuk tahta_prior) hacim
+    sicramasinin agirligi azaltilir — VETO degil, sinirli modulasyon.
+    Kalan agirlik gun-bazli normalizasyonla mevcut sinyallere dagitilir.
+    """
+    m = float(np.clip(settings.tahta_modulation, 0.0, 1.0))
+    if m <= 0:
+        return w
+    if "tahta_prior" not in signal_frame.columns:
+        return w
+    prior = pd.to_numeric(signal_frame["tahta_prior"], errors="coerce").dropna()
+    if prior.empty:
+        return w
+    p = float(prior.iloc[-1])
+
+    w = w.copy()
+    for i, col in enumerate(cols):
+        if col == "sig_volume":
+            w[i] *= 1.0 - m * 0.65 * (1.0 - p)
+        elif col == "sig_liquidity":
+            w[i] *= 1.0 - m * 0.50 * (1.0 - p)
+    return w
+
+
 def fuse(
     signal_frame: pd.DataFrame,
     *,
@@ -128,6 +161,7 @@ def fuse(
 
     cols = [c for c in SIGNAL_COLUMNS if c in signal_frame.columns]
     w = np.array([weights.get(_SIGNAL_TO_WEIGHT[c], 0.0) for c in cols])
+    w = _apply_tahta_modulation(w, cols, signal_frame, settings)
 
     signals = signal_frame[cols]
     A = signals.to_numpy(dtype=float)

@@ -24,6 +24,7 @@ FEATURE_COLUMNS = [
     "norm_range",
     "volatility_z",
     "illiquidity_z",
+    "clv",
 ]
 
 
@@ -72,6 +73,28 @@ def amihud_illiquidity(df: pd.DataFrame) -> pd.Series:
     return (ret / dv) * 1e9
 
 
+def close_location_value(df: pd.DataFrame) -> pd.Series:
+    """CLV: kapanisin gun ici araliktaki konumu, [-1, +1].
+
+    +1 = high'da kapanis (kusefe basma / marking the close isareti),
+    -1 = low'da kapanis. Manipulasyon literaturunde kapanis fiyati uzerinde
+    oynama (closing price manipulation) klasik bir kalıntidir.
+    """
+    rng = (df["high"] - df["low"]).replace(0.0, np.nan)
+    return (2.0 * df["close"] - df["high"] - df["low"]) / rng
+
+
+def dollar_volume(df: pd.DataFrame) -> pd.Series:
+    return df["close"] * df["volume"]
+
+
+def up_streak(ret: pd.Series) -> pd.Series:
+    """Ardisik pozitif gun sayisi (pump scheme'lerin birikim evresi)."""
+    pos = (ret > 0).astype(int)
+    streak = pos.groupby((pos != pos.shift()).cumsum()).cumsum()
+    return streak.where(pos == 1, 0)
+
+
 def add_features(df: pd.DataFrame, settings: Settings | None = None) -> pd.DataFrame:
     """Ham OHLCV cercevesine robust ozellik sutunlarini ekler."""
     settings = settings or load_settings()
@@ -81,10 +104,17 @@ def add_features(df: pd.DataFrame, settings: Settings | None = None) -> pd.DataF
     out["log_ret"] = log_returns(out["close"])
     out["vol_z"] = rolling_robust_z(out["volume"], w, settings.mad_scale)
     out["norm_range"] = norm_range(out)
+    out["norm_range_z"] = rolling_robust_z(out["norm_range"], w, settings.mad_scale)
     out["volatility"] = out["log_ret"].rolling(w, min_periods=max(5, w // 3)).std(ddof=0)
     out["volatility_z"] = rolling_robust_z(out["volatility"], w, settings.mad_scale)
     out["illiquidity"] = amihud_illiquidity(out)
     out["illiquidity_z"] = rolling_robust_z(out["illiquidity"], w, settings.mad_scale)
+    # Manipulasyon baglam etiketleri
+    out["dollar_volume"] = dollar_volume(out)
+    out["adv_dollar"] = out["dollar_volume"].rolling(w, min_periods=max(5, w // 3)).median()
+    out["clv"] = close_location_value(out)
+    out["clv_z"] = rolling_robust_z(out["clv"], w, settings.mad_scale)
+    out["up_streak"] = up_streak(out["log_ret"])
     return out
 
 

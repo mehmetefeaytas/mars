@@ -1,17 +1,19 @@
 {
-  "trained_at": "2026-10-18T13:05:13",
+  "trained_at": "2026-10-18T14:39:07",
   "n_train": 28800,
   "n_test": 7200,
-  "holdout_auc": 0.9938517619181682,
+  "holdout_auc": 0.9934221330705707,
   "coefficients": {
-    "sig_volume": 0.5705086798692458,
-    "sig_volatility": -0.3045291127946545,
-    "sig_liquidity": -0.3553576309601743,
-    "sig_index_divergence": 1.447596447726236,
-    "sig_mahalanobis": 0.43233905482751667,
-    "sig_isolation_forest": 0.39517342839860814
+    "sig_volume": 0.5011859447548139,
+    "sig_volatility": -0.3543161235443421,
+    "sig_liquidity": -0.49124162837899066,
+    "sig_index_divergence": 1.271714519798847,
+    "sig_close_location": 0.37971616827534943,
+    "sig_pump_pattern": 0.02457507046395677,
+    "sig_mahalanobis": 0.27713515868066685,
+    "sig_isolation_forest": 0.6612058098342656
   },
-  "intercept": -3.193736535025113,
+  "intercept": -3.3143138354487984,
   "label_schema": {
     "pump": 1,
     "subtle": 1,

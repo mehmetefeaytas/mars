@@ -27,6 +27,8 @@ _SIGNAL_TO_WEIGHT = {
     "sig_isolation_forest": "isolation_forest",
     "sig_liquidity": "liquidity",
     "sig_ml": "ml",
+    "sig_close_location": "close_location",
+    "sig_pump_pattern": "pump_pattern",
 }
 
 

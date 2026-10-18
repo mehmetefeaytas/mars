@@ -57,13 +57,15 @@ class FusionWeights:
     ve agirlik otomatik olarak mevcut sinyallere yeniden dagitilir.
     """
 
-    volume_z: float = 0.22        # Hacim sapmasi (robust MAD z)
-    index_divergence: float = 0.18  # Endeks ayrisimasi (market model CAR)
-    volatility: float = 0.13      # Oynaklik patlamasi (robust)
-    mahalanobis: float = 0.15     # Robust cok degiskenli uzaklik (MCD)
-    isolation_forest: float = 0.10  # iForest cikti
-    liquidity: float = 0.07       # Likidite soku (Amihud)
-    ml: float = 0.15              # Denetimli ML olasiligi (model varsa)
+    volume_z: float = 0.18        # Hacim sapmasi (robust MAD z) — likidite baglaminda module edilir
+    index_divergence: float = 0.16  # Endeks ayrisimasi (market model CAR)
+    volatility: float = 0.10      # Oynaklik patlamasi (robust)
+    mahalanobis: float = 0.13     # Robust cok degiskenli uzaklik (MCD)
+    isolation_forest: float = 0.08  # iForest cikti
+    liquidity: float = 0.06       # Likidite soku (Amihud) — likidite baglaminda module edilir
+    ml: float = 0.12              # Denetimli ML olasiligi (model varsa)
+    close_location: float = 0.08  # CLV / kapanis konumu (marking the close izi)
+    pump_pattern: float = 0.09    # Cok gunlu pump deseni (CAR kalıciligi + seri)
 
     def as_dict(self) -> dict[str, float]:
         return {f.name: getattr(self, f.name) for f in fields(self)}
@@ -123,6 +125,7 @@ class Settings:
     # --- Füzyon ---
     weights: FusionWeights = field(default_factory=FusionWeights)
     news_penalty_strength: float = 0.35  # haber destegi supheyi bu orana kadar dusurur
+    tahta_modulation: float = 1.0        # 0 = likidite-baglami modulasyonu kapali
 
     @property
     def raw_dir(self) -> Path:
@@ -179,4 +182,5 @@ def load_settings(dotenv: Path | None = None) -> Settings:
     s.news_penalty_strength = _env_float(
         "MARS_NEWS_PENALTY_STRENGTH", s.news_penalty_strength
     )
+    s.tahta_modulation = _env_float("MARS_TAHTA_MODULATION", s.tahta_modulation)
     return s

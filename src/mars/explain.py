@@ -136,6 +136,37 @@ def detailed_reasons(signal_row: pd.Series, fusion_row: pd.Series) -> list[dict]
             + "(sentetik pump/lijit senaryolarından öğrenildi).",
             pts("sig_ml"), _level((mlv - 0.5) * 6))
 
+    # --- Kapanis konumu (CLV) ---
+    clv = signal_row.get("clv")
+    if clv is not None and np.isfinite(clv):
+        loc = "aralığın tepesinde" if clv > 0.5 else "aralığın dibinde" if clv < -0.5 else "aralık ortasında"
+        add("Kapanış konumu (CLV)",
+            f"Gün içi aralıkta kapanış {loc} (CLV = {clv:+.2f}); "
+            + "kapanışa doğru fiyat itme (marking the close) izi."
+            if abs(clv) > 0.7 else "olağan kapanış konumu.",
+            pts("sig_close_location"), _level(abs(clv) * 4))
+
+    # --- Cok gunlu desen ---
+    car5 = signal_row.get("car5")
+    streak = signal_row.get("up_streak")
+    if car5 is not None and np.isfinite(car5):
+        streak_txt = f", {int(streak)} günlük aynı-yön serisi" if streak is not None and np.isfinite(streak) else ""
+        add("Çok günlük desen",
+            f"Son 5 günün kümülatif anormal getirisi CAR₅ = {_fmt_pct(car5)}{streak_txt}; "
+            + ("kalıcı, hacimle beslenen bir ayrışma deseni." if abs(car5) > 0.08
+               else "kalıcı desen zayıf."),
+            pts("sig_pump_pattern"), _level(abs(car5) / 0.04))
+
+    # --- Tahta baglami ---
+    tier = signal_row.get("liquidity_tier")
+    prior = signal_row.get("tahta_prior")
+    if tier is not None and tier != "" and prior is not None and np.isfinite(prior):
+        add("Tahta bağlamı (likidite)",
+            f"Hisse {tier} likidite katmanında (tahta riski önseli {prior:.2f}); "
+            + ("hacim sinyali bu bağlamda aşırlıyor." if prior < 0.4
+               else "hacim sinyali tam ağırlığında."),
+            0.0, "bağlam")
+
     reasons.sort(key=lambda r: -r["points"])
     return reasons
 
