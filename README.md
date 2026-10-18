@@ -64,22 +64,47 @@ Colab'da eğitim ve **gerçek vaka (`cases.csv`: ticker,tarih,etiket) ekleme**:
 `notebooks/mars_ml_colab.ipynb` — SPK kararlarından derlediğiniz etiketli günlerle
 zenginleştirilebilir.
 
-## Terminal Arayüzü
+## Terminal Arayüzü (React + FastAPI)
+
+**Birincil arayüz** — Figma trading-dashboard tasarım diliyle (koyu tema, sol
+sidebar, veri-yoğun tablolar, kartlar) React + TypeScript + Vite üzerine kuruludur.
 
 ```bash
-PYTHONPATH=src .venv/bin/streamlit run app.py
+# 1) Backend (API + SPA, http://localhost:8010)
+PYTHONPATH=src .venv/bin/uvicorn mars.api:app --port 8010
+
+# 2) Gelistirme modu (hot-reload, http://localhost:5173)
+cd frontend && npm install && npm run dev
+
+# 3) Uretim build (frontend/dist -> API uzerinden servis edilir)
+cd frontend && npm run build
 ```
 
-| Sekme | İçerik |
+| Sayfa | İçerik |
 |-------|--------|
-| 🔍 Şüpheli Hisseler | BIST sepeti taraması; skor sıralaması, veri güveni, getiri/AR, en etkili sinyal, CSV indirme |
-| 📊 Hisse Analizi | Mum + hacim + şüphe grafiği (Plotly), KPI kartları, sinyal şelalesi, **değer bazlı gerekçeler** (robust z, AR), gün seçici |
-| 📰 Haber Akışı | RSS haberleri; polarite ve VeriShield güvenilirlik rozetleri, hisse eşleştirme |
-| 🤖 LLM Açıklama | Yerel Ollama modeliyle günün yorumu; kural-tabanlı açıklama her zaman görünür |
+| 🔍 Şüpheli Hisseler | Sepet taraması; sıralanabilir skor tablosu, tahta bağlamı rozeti, CSV |
+| 📊 Hisse Analizi | TradingView `lightweight-charts` mum+hacim ve şüphe grafikleri (senkron, tıklanabilir gün seçimi), 6 KPI kartı, sinyal şelalesi, gerekçeler, eşleşen haberler |
+| 📰 Haber Akışı | RSS kartları; polarite/güvenilirlik/altyapı rozetleri |
+| 🤖 LLM Açıklama | Gün seçimi + yerel LLM yorumu; kural-tabanlı fallback |
+| ⚙️ Parametreler | 7 motor parametresi + 9 füzyon ağırlığı (canlı) |
 
-Kenar çubuğunda 10+ parametre: geçmiş uzunluğu, robust pencere, market model
-penceresi, iForest ayarları, 7 füzyon ağırlığı, haber ceza gücü, RSS/LLM anahtarları.
-LLM için: `ollama serve && ollama pull qwen2.5:7b-instruct`
+API uçları: `GET /api/health|meta|analyze|news` · `POST /api/screener|explain`.
+
+**Alternatif (hızlı demo):** `PYTHONPATH=src .venv/bin/streamlit run app.py`
+
+## Manipülasyon Tespiti v3 — Likidite Bağlamı (Tahta Riski)
+
+Akademik bulgu: manipülasyon düşük likiditeli hisselerde yoğunlaşır
+(Aggarwal & Wu 2006; Khwaja & Mian 2005). Buna göre:
+
+- **Tahta önseli:** medyan dolar hacimden likidite katmanı ("çok sığ" → "çok
+  likit") ve `tahta_prior ∈ [0.15, 1.0]` hesaplanır.
+- **Sınırlı modülasyon (veto değil):** derin/mega likit hissede hacim ve Amihud
+  sinyal ağırlıkları aşırılır; kalan ağırlık diğer sinyallere dağıtılır. Örnek:
+  BIMAS (likit) skoru 53.8 → 41.7'ye düştü, sığ tahtalar tam ağırlık korudu.
+- **Yeni etiketler:** CLV/kapanış konumu (marking-the-close izi), çok günlük
+  pump deseni (CAR₅ kalıcılığı + hacim sürekliliği + yön serisi), aralık oynaklığı.
+- **ML yeniden eğitildi:** 8 özellik, holdout AUC 0.993.
 
 ## Kurulum
 
