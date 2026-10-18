@@ -72,6 +72,11 @@ def generate_stock(
             elif injection_kind == "news_legit":
                 ret[i] += rng.uniform(0.05, 0.10)
                 volume[i] *= rng.uniform(1.8, 2.6)
+            elif injection_kind == "subtle":
+                # Sığ tahta: mutevazi hacimle buyuk-getiriye yakin hareket.
+                # Tekil hacim esigi zayif kalir; cok boyutlu sinyaller gerekir.
+                ret[i] += rng.uniform(0.03, 0.07)
+                volume[i] *= rng.uniform(1.2, 1.8)
 
     close = cfg.base_price * np.exp(np.cumsum(ret))
     prev_close = np.concatenate([[cfg.base_price], close[:-1]])

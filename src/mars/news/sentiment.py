@@ -18,7 +18,12 @@ from functools import lru_cache
 
 from .sources import SentimentResult
 
-_TURKISH_LOWER = str.maketrans({"İ": "i", "I": "ı", "Ş": "ş", "Ğ": "ğ", "Ü": "ü", "Ö": "ö", "Ç": "ç"})
+_TURKISH_LOWER = str.maketrans(
+    {
+        "İ": "i", "I": "ı", "Ş": "ş", "Ğ": "ğ", "Ü": "ü", "Ö": "ö", "Ç": "ç",
+        "Â": "a", "â": "a", "Î": "i", "î": "i", "Û": "u", "û": "u",
+    }
+)
 
 POSITIVE_WORDS = {
     "artış", "artti", "arttı", "artis", "yükseliş", "yükseldi", "yükselişe", "kar",
@@ -87,40 +92,49 @@ def _bert_sentiment(text: str, model_name: str) -> SentimentResult | None:
 
 
 def lexicon_sentiment(text: str) -> SentimentResult:
-    """Turkce finansal sozluk tabanli polarite."""
+    """Turkce finansal sozluk tabanli polarite.
+
+    Olumsuzlama Turkce'de cogunlukla son ektir ("kâr yok", "artmadı"); bu yuzden
+    bir olumsuzlama kelimesi geldiginde EN SON duygu vurusunun isareti cevrilir.
+    Ayrica "değil ... " gibi onek kullanim icin kisa bir ileri-bakis tutulur.
+    """
     toks = _tokens(text)
-    pos = neg = 0
+    hits: list[int] = []  # her vuru icin isaret (+1 / -1)
     intens = 0
-    negate_next = False
+    pending_negate = False
     negated_hits = 0
 
     for tok in toks:
         if tok in NEGATIONS:
-            negate_next = True
+            if hits:
+                hits[-1] = -hits[-1]  # son vuruyu cevir (son-ek olumsuzlama)
+                negated_hits += 1
+            else:
+                pending_negate = True  # onek olumsuzlama (nadir)
             continue
         if tok in INTENSIFIERS:
             intens += 1
             continue
         if tok in POSITIVE_WORDS:
-            if negate_next:
-                neg += 1
+            sign = -1 if pending_negate else 1
+            hits.append(sign)
+            if pending_negate:
                 negated_hits += 1
-            else:
-                pos += 1
+            pending_negate = False
         elif tok in NEGATIVE_WORDS:
-            if negate_next:
-                pos += 1
+            sign = -1 if pending_negate else 1
+            hits.append(-sign)  # negatif kelime ters isaretli
+            if pending_negate:
                 negated_hits += 1
-            else:
-                neg += 1
-        negate_next = False
+            pending_negate = False
 
+    pos = sum(1 for h in hits if h > 0)
+    neg = sum(1 for h in hits if h < 0)
     total = pos + neg
     if total == 0:
         return SentimentResult(polarity=0.0, label="notr", confidence=0.2, backend="lexicon")
 
     polarity = (pos - neg) / total
-    # Siddet: vurularin sayisina ve yogunlastiricilara gore guven.
     base_conf = min(1.0, total / 5.0)
     conf = min(1.0, base_conf + 0.1 * intens + 0.05 * negated_hits)
     label = "pozitif" if polarity > 0.05 else "negatif" if polarity < -0.05 else "notr"
