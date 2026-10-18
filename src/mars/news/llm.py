@@ -114,6 +114,7 @@ def explain_with_llm(payload: dict, settings: Settings | None = None) -> str | N
             {"role": "user", "content": build_explanation_prompt(payload)},
         ],
         "temperature": 0.3,
+        "max_tokens": 500,  # kacirma/uzun uretim riskini sinirlar
     }
     try:
         r = requests.post(url, json=body, timeout=settings.llm_timeout)
