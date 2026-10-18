@@ -53,16 +53,17 @@ def _env_bool(key: str, default: bool) -> bool:
 class FusionWeights:
     """Birlesik suphe skoru agirliklari (sum=1 olacak sekilde normalize edilir).
 
-    Prototip agirliklari rapordaki Tablo 5 ile uyumludur, ancak makine ogrenmesi
-    ve robust istatistik bilesenleri akademik cerceveye gore yeniden adlandirildi.
+    ml: denetimli siniflandirici sinyali — model kayitli degilse sinyal NaN olur
+    ve agirlik otomatik olarak mevcut sinyallere yeniden dagitilir.
     """
 
-    volume_z: float = 0.25        # Hacim sapmasi (robust MAD z)
-    index_divergence: float = 0.20  # Endeks ayrisimasi (market model CAR)
-    volatility: float = 0.20      # Oynaklik patlamasi (robust)
+    volume_z: float = 0.22        # Hacim sapmasi (robust MAD z)
+    index_divergence: float = 0.18  # Endeks ayrisimasi (market model CAR)
+    volatility: float = 0.13      # Oynaklik patlamasi (robust)
     mahalanobis: float = 0.15     # Robust cok degiskenli uzaklik (MCD)
     isolation_forest: float = 0.10  # iForest cikti
-    liquidity: float = 0.10       # Likidite soku (Amihud)
+    liquidity: float = 0.07       # Likidite soku (Amihud)
+    ml: float = 0.15              # Denetimli ML olasiligi (model varsa)
 
     def as_dict(self) -> dict[str, float]:
         return {f.name: getattr(self, f.name) for f in fields(self)}
@@ -99,6 +100,17 @@ class Settings:
     verishield_mode: str = "embedded"  # embedded | http
     verishield_base_url: str = "http://localhost:8000"
 
+    # --- Haber / RSS ---
+    rss_enabled: bool = True
+    rss_feeds: str = (
+        "https://www.bloomberght.com/rss/tum-haberler.xml,"
+        "https://www.cnnturk.com/feed/rss/ekonomi/news"
+    )
+    rss_max_items: int = 60
+
+    # --- ML ---
+    ml_enabled: bool = True
+
     # --- Duygu / LLM ---
     sentiment_backend: str = "auto"  # auto | bert | lexicon
     sentiment_model: str = "savasy/bert-base-turkish-sentiment-cased"
@@ -106,6 +118,7 @@ class Settings:
     llm_provider: str = "ollama"
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "qwen2.5:7b-instruct"
+    llm_timeout: int = 60
 
     # --- Füzyon ---
     weights: FusionWeights = field(default_factory=FusionWeights)
@@ -147,6 +160,14 @@ def load_settings(dotenv: Path | None = None) -> Settings:
     s.verishield_enabled = _env_bool("MARS_VERISHIELD_ENABLED", s.verishield_enabled)
     s.verishield_mode = _env_str("MARS_VERISHIELD_MODE", s.verishield_mode)
     s.verishield_base_url = _env_str("MARS_VERISHIELD_BASE_URL", s.verishield_base_url)
+
+    s.rss_enabled = _env_bool("MARS_RSS_ENABLED", s.rss_enabled)
+    s.rss_feeds = _env_str("MARS_RSS_FEEDS", s.rss_feeds)
+    s.rss_max_items = _env_int("MARS_RSS_MAX_ITEMS", s.rss_max_items)
+
+    s.ml_enabled = _env_bool("MARS_ML_ENABLED", s.ml_enabled)
+
+    s.llm_timeout = _env_int("MARS_LLM_TIMEOUT", s.llm_timeout)
 
     s.sentiment_backend = _env_str("MARS_SENTIMENT_BACKEND", s.sentiment_backend)
     s.sentiment_model = _env_str("MARS_SENTIMENT_MODEL", s.sentiment_model)

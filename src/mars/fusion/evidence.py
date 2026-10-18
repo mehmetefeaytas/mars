@@ -72,12 +72,13 @@ def fuse_evidence(
     reliabilities: dict[str, float] | None = None,
 ) -> pd.Series:
     """Her gun icin DS bilesik anomali inanci (0-100 skalasina cevrilir)."""
-    rel = reliabilities or {c: 1.0 for c in SIGNAL_COLUMNS}
-    values = signal_frame[SIGNAL_COLUMNS].to_numpy(dtype=float)
+    rel = reliabilities or {}
+    cols = [c for c in SIGNAL_COLUMNS if c in signal_frame.columns]
+    values = signal_frame[cols].to_numpy(dtype=float)
     out = np.full(len(signal_frame), np.nan)
     for i in range(len(signal_frame)):
         masses = []
-        for j, col in enumerate(SIGNAL_COLUMNS):
+        for j, col in enumerate(cols):
             a = values[i, j]
             if not np.isfinite(a):
                 continue

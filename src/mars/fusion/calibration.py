@@ -26,6 +26,7 @@ _SIGNAL_TO_WEIGHT = {
     "sig_mahalanobis": "mahalanobis",
     "sig_isolation_forest": "isolation_forest",
     "sig_liquidity": "liquidity",
+    "sig_ml": "ml",
 }
 
 

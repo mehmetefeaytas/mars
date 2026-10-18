@@ -91,6 +91,17 @@ def rolling_abnormal_returns(
     return pd.Series(ar, index=df.index, name="abnormal_ret")
 
 
+def signal_from_ar(ar: pd.Series) -> pd.Series:
+    """Anormal getiri serisinden [0,1] normalize ayrisim sinyali (robust z + sigmoid)."""
+    values = ar.to_numpy(dtype=float)
+    mask = np.isfinite(values)
+    sig = np.full(len(values), np.nan)
+    if mask.any():
+        z = robust_zscore(values[mask])
+        sig[mask] = squash_to_unit(z, k=1.0)
+    return pd.Series(sig, index=ar.index, name="sig_index_divergence")
+
+
 def index_divergence_signal(
     stock_ret: pd.Series,
     market_ret: pd.Series,
@@ -105,7 +116,7 @@ def index_divergence_signal(
     """
     df = pd.concat([stock_ret.rename("r"), market_ret.rename("m")], axis=1).dropna()
     if df.empty:
-        return pd.Series(dtype=float, name="index_divergence")
+        return pd.Series(dtype=float, name="sig_index_divergence")
 
     if fit is not None:
         ar = df["r"] - (fit.alpha + fit.beta * df["m"])
@@ -113,13 +124,7 @@ def index_divergence_signal(
     else:
         ar = rolling_abnormal_returns(df["r"], df["m"], window=rolling)
 
-    values = ar.to_numpy(dtype=float)
-    mask = np.isfinite(values)
-    sig = np.full(len(values), np.nan)
-    if mask.any():
-        z = robust_zscore(values[mask])
-        sig[mask] = squash_to_unit(z, k=1.0)
-    return pd.Series(sig, index=df.index, name="index_divergence")
+    return signal_from_ar(ar)
 
 
 def cumulative_abnormal_return(ar: pd.Series, window: int = 5) -> pd.Series:

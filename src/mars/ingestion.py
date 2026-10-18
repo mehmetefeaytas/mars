@@ -46,20 +46,45 @@ def _cache_path(settings: Settings, ticker: str) -> Path:
     return settings.raw_dir / f"{safe}.parquet"
 
 
-def _read_cache(path: Path, ttl_hours: int) -> pd.DataFrame | None:
+def _read_cache(
+    path: Path, ttl_hours: int, start: str | None = None, end: str | None = None
+) -> pd.DataFrame | None:
+    """Onbellek gecerliyse okur; istenen tarih araligini KAPAMIYORSA reddeder.
+
+    Sorun: ayni ticker icin farkli tarih araliklarinda yapilan cagirilar ayni
+    parquet uzerine yazilir. Kapsam kontrolu olmazsa eski aralik doner ve hisse/
+    endeks hizalama bosalir ("Hizalanmis veri bos" hatasi).
+    """
     if not path.exists():
         return None
     age_hours = (time.time() - path.stat().st_mtime) / 3600.0
     if age_hours > ttl_hours:
         return None
     try:
-        return pd.read_parquet(path)
+        df = pd.read_parquet(path)
     except Exception:  # noqa: BLE001
         return None
+    if df is None or df.empty:
+        return None
+    if start is not None:
+        cs = df.index.min()
+        want_start = pd.Timestamp(start)
+        if cs > want_start + pd.Timedelta(days=7):
+            return None  # onbellek istenen baslangici kapsamiyor
+    if end is not None:
+        ce = df.index.max()
+        want_end = pd.Timestamp(end)
+        if ce < want_end - pd.Timedelta(days=7):
+            return None  # onbellek istenen bitisi kapsamiyor
+    return df
 
 
-def _write_cache(path: Path, df: pd.DataFrame) -> None:
+def _write_cache(path: Path, df: pd.DataFrame, existing: pd.DataFrame | None = None) -> None:
+    """Onbellege yazar; varsa eski veriyle birlestirir (union)."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    if existing is not None and not existing.empty:
+        df = pd.concat([existing, df])
+        df = df[~df.index.duplicated(keep="last")].sort_index()
     df.to_parquet(path)
 
 
@@ -87,8 +112,9 @@ def load_ohlcv(
     start: str | None = None,
     end: str | None = None,
     allow_network: bool = True,
+    force_refresh: bool = False,
 ) -> LoadResult:
-    """Bir ticker icin gunluk OHLCV yukler (onbellek -> ag -> hata)."""
+    """Bir ticker icin gunluk OHLCV yukler (onbellek -> ag -> bayat onbellek)."""
     settings = settings or load_settings()
     if start is None:
         start = (datetime.now(timezone.utc) - timedelta(days=settings.lookback_days)).strftime(
@@ -98,29 +124,33 @@ def load_ohlcv(
         end = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     cache = _cache_path(settings, ticker)
-    cached = _read_cache(cache, settings.cache_ttl_hours)
-    if cached is not None and not cached.empty:
-        return LoadResult(frame=cached, source="cache", ticker=ticker)
+    existing: pd.DataFrame | None = None
+    if cache.exists():
+        try:
+            existing = pd.read_parquet(cache)
+        except Exception:  # noqa: BLE001
+            existing = None
+
+    if not force_refresh:
+        cached = _read_cache(cache, settings.cache_ttl_hours, start, end)
+        if cached is not None and not cached.empty:
+            return LoadResult(frame=cached, source="cache", ticker=ticker)
 
     if allow_network:
         try:
             df = _fetch_network(ticker, start, end)
-            _write_cache(cache, df)
+            _write_cache(cache, df, existing)
             return LoadResult(frame=df, source="network", ticker=ticker)
         except Exception as exc:  # noqa: BLE001
-            # Eski onbellek TTL disinda olsa bile son care olarak kullanilir.
-            stale = None
-            if cache.exists():
-                try:
-                    stale = pd.read_parquet(cache)
-                except Exception:  # noqa: BLE001
-                    stale = None
-            if stale is not None and not stale.empty:
-                return LoadResult(frame=stale, source="cache", ticker=ticker)
+            # Ag hatasinda: kapsam disi bile olsa bayat onbellek son caredir.
+            if existing is not None and not existing.empty:
+                return LoadResult(frame=existing, source="cache-stale", ticker=ticker)
             raise RuntimeError(
-                f"Veri alinamadi ({ticker}) ve onbellek yok: {exc}"
+                f"Veri alinamadi ({ticker}) ve kullanilabilir onbellek yok: {exc}"
             ) from exc
 
+    if existing is not None and not existing.empty:
+        return LoadResult(frame=existing, source="cache-stale", ticker=ticker)
     raise RuntimeError(f"Ag kapali ve onbellek yok: {ticker}")
 
 
@@ -139,4 +169,12 @@ def align_stock_market(stock: pd.DataFrame, market: pd.DataFrame) -> pd.DataFram
     stock.index.name = "date"
     market.index.name = "date"
     joined = stock.join(market[["close"]].rename(columns={"close": "market_close"}), how="inner")
-    return joined.dropna(subset=["close", "market_close"])
+    joined = joined.dropna(subset=["close", "market_close"])
+    if joined.empty:
+        raise RuntimeError(
+            "Hisse ve endeks verilerinin tarih araliklari kesismiyor "
+            f"(hisse: {stock.index.min().date()}–{stock.index.max().date()}, "
+            f"endeks: {market.index.min().date()}–{market.index.max().date()}). "
+            "Onbellek temizlenip yeniden cekilecek."
+        )
+    return joined

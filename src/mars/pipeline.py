@@ -34,7 +34,9 @@ class AnalysisResult:
 
     def summary(self, date: pd.Timestamp | None = None) -> str:
         idx = date if date is not None else self.fusion.frame.index[-1]
-        return summarize_day(self.fusion.frame.loc[idx], date=idx)
+        return summarize_day(
+            self.fusion.frame.loc[idx], date=idx, signal_row=self.signal_frame.loc[idx]
+        )
 
     def waterfall(self, date: pd.Timestamp | None = None, top_k: int = 5) -> list[dict]:
         idx = date if date is not None else self.fusion.frame.index[-1]
@@ -52,18 +54,19 @@ def analyze(
     allow_network: bool = True,
     weights: FusionWeights | dict[str, float] | None = None,
 ) -> AnalysisResult:
-    """Bir hisse icin tam MARS analizini kosturur."""
+    """Bir hisse icin tam MARS analizini kosturur.
+
+    Hisse/endeks tarih araliklari kesismezse (bayat onbellek vb.) onbellek
+    atlanip agdan taze veriyle bir kez daha denenir.
+    """
     settings = settings or load_settings()
-    stock = load_ohlcv(ticker, settings, start=start, end=end, allow_network=allow_network)
-    market = load_bist100(settings, start=start, end=end, allow_network=allow_network)
-    aligned = align_stock_market(stock.frame, market.frame)
-    if aligned.empty:
-        raise RuntimeError(f"Hizalanmis veri bos: {ticker} / {settings.benchmark_ticker}")
+    try:
+        aligned, source = _load_aligned(ticker, settings, start, end, allow_network, force_refresh=False)
+    except RuntimeError:
+        aligned, source = _load_aligned(ticker, settings, start, end, allow_network, force_refresh=True)
 
     sf: SignalFrame = compute_signals(aligned, settings)
-    ar = rolling_abnormal_returns(
-        sf.frame["log_ret"], sf.frame["market_log_ret"], window=settings.estimation_window
-    )
+    ar = sf.frame.get("abnormal_ret")
     fusion = fuse(
         sf.frame,
         news_by_date=news_by_date,
@@ -73,8 +76,28 @@ def analyze(
     )
     return AnalysisResult(
         ticker=ticker,
-        data_source=stock.source,
+        data_source=source,
         signal_frame=sf.frame,
         fusion=fusion,
         feature_columns=sf.feature_columns,
     )
+
+
+def _load_aligned(
+    ticker: str,
+    settings: Settings,
+    start: str | None,
+    end: str | None,
+    allow_network: bool,
+    force_refresh: bool,
+) -> tuple[pd.DataFrame, str]:
+    stock = load_ohlcv(
+        ticker, settings, start=start, end=end, allow_network=allow_network,
+        force_refresh=force_refresh,
+    )
+    market = load_bist100(
+        settings, start=start, end=end, allow_network=allow_network,
+        force_refresh=force_refresh,
+    )
+    aligned = align_stock_market(stock.frame, market.frame)
+    return aligned, stock.source

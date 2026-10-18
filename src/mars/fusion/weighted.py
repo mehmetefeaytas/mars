@@ -5,6 +5,10 @@ Denklem (rapor Eq. 5):
     S_t = 100 * ( sum_j w_j A_j,t ) / ( sum_j w_j )
 burada A_j,t in [0,1] normalize sinyaller, w_j >= 0 agirliklar.
 
+Gun-bazinda normalize etme: bir sinyal o gun veri icermiyorsa (NaN — or. ML
+modeli yok) agirligi otomatik olarak diger mevcut sinyallere yeniden dagitilir.
+Boylece eksik sinyal skoru sistematik olarak dusurmez.
+
 Haber duzeltmesi (Bayesci sezgi): dogrulanmis ve hareketle AYNI yonde bir haber
 supheyi dusurur; CELISEN guvenilir haber supheyi hafifce artirir. Etki,
 `news_penalty_strength` ile sinirlanir (tek basina veto degildir).
@@ -29,15 +33,17 @@ _SIGNAL_TO_WEIGHT = {
     "sig_mahalanobis": "mahalanobis",
     "sig_isolation_forest": "isolation_forest",
     "sig_liquidity": "liquidity",
+    "sig_ml": "ml",
 }
 
 _SIGNAL_LABELS = {
-    "sig_volume": "Hacim sapmasi",
+    "sig_volume": "Hacim sapması",
     "sig_index_divergence": "Endeksten kopuş",
-    "sig_volatility": "Oynaklik patlamasi",
-    "sig_mahalanobis": "Cok degiskenli uzaklik",
+    "sig_volatility": "Oynaklık patlaması",
+    "sig_mahalanobis": "Çok değişkenli uzaklık",
     "sig_isolation_forest": "Isolation Forest",
-    "sig_liquidity": "Likidite soku",
+    "sig_liquidity": "Likidite şoku",
+    "sig_ml": "ML şüphe olasılığı",
 }
 
 
@@ -58,10 +64,11 @@ def _normalize_weights(weights: FusionWeights | dict[str, float]) -> dict[str, f
     return {k: v / total for k, v in weights.items()}
 
 
-def _data_confidence(row: pd.Series, n_history: int, feature_count: int) -> float:
+def _data_confidence(row: pd.Series, n_history: int, signal_cols: list[str]) -> float:
     """Veri kapsami/derinligi skoru (0-100)."""
-    available = row[SIGNAL_COLUMNS].notna().sum()
-    completeness = available / max(1, len(SIGNAL_COLUMNS))
+    present = [c for c in signal_cols if c in row.index]
+    available = row[present].notna().sum()
+    completeness = available / max(1, len(present))
     depth = min(1.0, n_history / 250.0)
     return round(100.0 * (0.6 * completeness + 0.4 * depth), 1)
 
@@ -92,12 +99,12 @@ def _news_adjustment(
         if ar_sign == 0 or np.sign(p) == ar_sign:
             confirmed += weight
             reasons.append(
-                f"Dogrulanmis haber hareketle ayni yonde (guvenilirlik {n.credibility.score:.2f})."
+                f"Doğrulanmış haber hareketle aynı yönde (güvenilirlik {n.credibility.score:.2f})."
             )
         else:
             contradiction += weight
             reasons.append(
-                f"Guvenilir haber hareketle celisiyor (guvenilirlik {n.credibility.score:.2f})."
+                f"Güvenilir haber hareketle çelişiyor (güvenilirlik {n.credibility.score:.2f})."
             )
 
     confirmed = min(1.0, confirmed)
@@ -118,27 +125,33 @@ def fuse(
     """Sinyal cercevesini gunluk suphe skoruna (0-100) donusturur."""
     settings = settings or load_settings()
     weights = _normalize_weights(weights or settings.weights)
-    w = np.array([weights[_SIGNAL_TO_WEIGHT[c]] for c in SIGNAL_COLUMNS])
-    w_sum = w.sum() if w.sum() > 0 else 1.0
 
-    signals = signal_frame[SIGNAL_COLUMNS]
-    # NaN sinyaller 0 katki verir (bilinmeyen anormal sayilmaz).
+    cols = [c for c in SIGNAL_COLUMNS if c in signal_frame.columns]
+    w = np.array([weights.get(_SIGNAL_TO_WEIGHT[c], 0.0) for c in cols])
+
+    signals = signal_frame[cols]
     A = signals.to_numpy(dtype=float)
-    A_filled = np.nan_to_num(A, nan=0.0)
-    weighted = A_filled * w  # (n, k)
-    suspicion = 100.0 * weighted.sum(axis=1) / w_sum
+    finite = np.isfinite(A)
+    A0 = np.where(finite, A, 0.0)
+
+    # Gun-bazinda agirlik normalizasyonu: yalniz mevcut (finite) sinyaller.
+    w_day = (finite * w).sum(axis=1)                       # (n,)
+    w_day_safe = np.where(w_day > 0, w_day, 1.0)
+    weighted = A0 * w                                      # (n, k)
+    suspicion = 100.0 * weighted.sum(axis=1) / w_day_safe
+    suspicion = np.where(w_day > 0, suspicion, 0.0)
 
     n = len(signal_frame)
     result = pd.DataFrame(index=signal_frame.index)
     result["suspicion_base"] = suspicion
 
     # Katki paylari (puan cinsinden)
-    for i, col in enumerate(SIGNAL_COLUMNS):
-        result[f"contrib_{col}"] = 100.0 * weighted[:, i] / w_sum
+    for i, col in enumerate(cols):
+        result[f"contrib_{col}"] = 100.0 * weighted[:, i] / w_day_safe
 
     # Data confidence
     result["data_confidence"] = [
-        _data_confidence(signal_frame.iloc[i], i + 1, len(SIGNAL_COLUMNS)) for i in range(n)
+        _data_confidence(signal_frame.iloc[i], i + 1, cols) for i in range(n)
     ]
 
     # Haber duzeltmesi
