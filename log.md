@@ -15,3 +15,5 @@
 | 2026-10-18 | 12:55 | Faz 1: ingestion yazildi (yfinance .IS, cache, takvim hizalama) + sentetik uretici | `src/mars/ingestion.py`, `src/mars/synthetic.py` | THYAO.IS gercek verisiyle dogrulandi (249 gun) |
 | 2026-10-18 | 13:05 | Faz 2: robust ozellikler (log getiri, MAD z, aralik, Amihud) | `src/mars/features.py` | Hazir |
 | 2026-10-18 | 13:20 | Faz 3: anomali cekirdek (MCD-Mahalanobis, Isolation Forest, market-model CAR) + sinyal montaji | `src/mars/anomaly/`, `src/mars/models/market_model.py`, `src/mars/signals.py` | Sentetik enjeksiyonlar net ayristi (hacim 1.0, endeks 0.98) |
+| 2026-10-18 | 13:45 | Faz 4: haber modulu (kaynak semasi, hibrit BERT/lexicon duygu, LLM kopru, VeriShield adaptor) | `src/mars/news/` | Embedded VeriShield skoru alindi; lexicon duygu dogrulandi |
+| 2026-10-18 | 14:05 | Faz 5: füzyon (kisitli agirlikli + Dempster-Shafer), kalibrasyon, aciklanabilirlik + pipeline/CLI | `src/mars/fusion/`, `src/mars/explain.py`, `src/mars/pipeline.py`, `src/mars/cli.py` | Enjeksiyon suphesi 71-81 vs taban 16; DS enjeksiyon 100; haber duzeltmesi 71.6->58.4 |
