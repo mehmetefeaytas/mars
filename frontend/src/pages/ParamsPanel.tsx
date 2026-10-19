@@ -65,7 +65,7 @@ export function ParamsPanel(): JSX.Element {
   const weights = params.weights;
 
   return (
-    <Card title="⚙️ Analiz Ayarları (isteğe bağlı)">
+    <Card title="Analiz Ayarları (isteğe bağlı)">
       <p className="hint" style={{ fontSize: ".74rem" }}>
         Bu ayarları değiştirmek zorunda değilsiniz. Varsayılanlar çoğu hisse için
         uygundur; yalnızca farklı bir hassasiyet isterseniz oynatın.

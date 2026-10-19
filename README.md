@@ -87,8 +87,9 @@ zenginleştirilebilir.
 
 ## Terminal Arayüzü (React + FastAPI)
 
-**Birincil arayüz** — Figma trading-dashboard tasarım diliyle (koyu tema, sol
-sidebar, veri-yoğun tablolar, kartlar) React + TypeScript + Vite üzerine kuruludur.
+**Birincil arayüz** — profesyonel finans terminali tasarım diliyle (siyah + amber,
+koyu/açık tema, sol sidebar, veri-yoğun tablolar, kartlar, SVG çizgi ikonlar)
+React + TypeScript + Vite üzerine kuruludur.
 
 ```bash
 # 1) Backend (API + SPA, http://localhost:8010)

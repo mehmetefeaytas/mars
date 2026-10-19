@@ -37,3 +37,6 @@ frontend/tsconfig.tsbuildinfo
 
 # Arayuzden kaydedilen calisma-zamani ayarlari (sir icerebilir)
 data/settings.local.json
+
+# Ajan dogrulama ekran goruntuleri
+.claude-screenshots/

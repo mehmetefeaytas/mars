@@ -37,8 +37,17 @@ export function Spinner({ label }: { label?: string }) {
 
 export function ErrorBox({ message }: { message: string }) {
   return (
-    <div className="card" style={{ borderColor: "rgba(248,113,113,.4)", marginBottom: 14 }}>
-      <p style={{ color: "var(--down)", fontSize: ".86rem" }}>⚠ {message}</p>
+    <div className="card" style={{ borderColor: "rgba(239,83,80,.4)", marginBottom: 14 }}>
+      <p style={{ color: "var(--down)", fontSize: ".86rem", display: "flex", alignItems: "center", gap: 8 }}>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+          strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+          style={{ flexShrink: 0 }}>
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <path d="M12 9v4" />
+          <path d="M12 17h.01" />
+        </svg>
+        {message}
+      </p>
     </div>
   );
 }

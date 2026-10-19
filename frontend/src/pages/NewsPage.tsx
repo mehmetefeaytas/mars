@@ -28,7 +28,7 @@ export default function NewsPage(): JSX.Element {
 
   return (
     <>
-      <Card title="📰 Borsa ve piyasa haberleri">
+      <Card title="Borsa ve Piyasa Haberleri">
         <p className="hint">
           Yalnızca <b>borsa/ekonomi ile ilgili</b> haberler listelenir; magazin, spor
           ve genel siyaset haberleri elenir. Haberler BloombergHT ve CNN Türk ekonomi

@@ -81,7 +81,7 @@ export default function ScreenerPage(): JSX.Element {
 
   return (
     <>
-      <Card title="🔍 Şüpheli Hisseler — Sepet Taraması">
+      <Card title="Şüpheli Hisseler — Sepet Taraması">
         <p className="hint" style={{ fontSize: ".78rem" }}>
           İzleme listesindeki tüm hisseler, son işlem günü için tek tek puanlanır ve
           en dikkat çekiciler üstte olacak şekilde sıralanır. <b>İlk tarama</b> verileri

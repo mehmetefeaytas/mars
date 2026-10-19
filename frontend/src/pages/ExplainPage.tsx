@@ -26,7 +26,7 @@ export default function ExplainPage(): JSX.Element {
 
   return (
     <>
-      <Card title="🤖 Bu sayfa ne yapar?">
+      <Card title="Bu Sayfa Ne Yapar?">
         <p className="hint">
           Seçtiğiniz bir günde hissede <b>olağan dışı bir şey olup olmadığını</b> yapay
           zekâ sayesinde sade bir Türkçeyle okursunuz. Yapay zekâ; grafik, hacim, endeks
@@ -72,7 +72,7 @@ export default function ExplainPage(): JSX.Element {
               <div className="kpi">
                 <div className="label">Açıklamayı Kim Yazdı?</div>
                 <div className="value" style={{ fontSize: "1rem" }}>
-                  {result.llm ? "🤖 Yapay zekâ" : "📖 Kural motoru"}
+                  {result.llm ? "Yapay zekâ" : "Kural motoru"}
                 </div>
                 <div className="sub">{result.date}</div>
               </div>
@@ -80,7 +80,7 @@ export default function ExplainPage(): JSX.Element {
             <p style={{ fontSize: ".9rem", lineHeight: 1.75 }}>{result.summary}</p>
           </Card>
 
-          <Card title="🤖 Yapay Zekâ Yorumu">
+          <Card title="Yapay Zekâ Yorumu">
             {result.llm ? (
               <div className="llm-box">{result.llm}</div>
             ) : (
@@ -91,7 +91,7 @@ export default function ExplainPage(): JSX.Element {
                 </p>
                 <div className="status-line">
                   <button className="btn ghost sm" onClick={() => navigate("/settings")}>
-                    ⚙️ Ayarları aç
+                    Ayarları aç
                   </button>
                   <Pill status="warn">Model seçin / anahtar girin</Pill>
                 </div>
@@ -99,7 +99,7 @@ export default function ExplainPage(): JSX.Element {
             )}
           </Card>
 
-          <Card title="📊 Gerekçeler (sayılarla, sade anlatım)">
+          <Card title="Gerekçeler (sayılarla, sade anlatım)">
             <p className="hint" style={{ fontSize: ".72rem" }}>
               Yapay zekâ yorumundan bağımsız olarak, skoru neyin yükselttiğini madde
               madde gösterir. Her satırda <b>neyi ölçtüğü</b>, o gün <b>ne olduğu</b> ve

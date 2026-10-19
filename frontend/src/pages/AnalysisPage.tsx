@@ -83,7 +83,7 @@ function PriceChart({
         volumes.push({
           time: t,
           value: v,
-          color: (c ?? 0) >= (o ?? 0) ? "rgba(34,197,94,.55)" : "rgba(239,68,68,.55)",
+          color: (c ?? 0) >= (o ?? 0) ? "rgba(63,182,139,.55)" : "rgba(239,83,80,.55)",
         });
       }
       const s = analysis.suspicion[i];
@@ -91,12 +91,12 @@ function PriceChart({
     });
 
     const candleSeries: ISeriesApi<"Candlestick"> = chart.addCandlestickSeries({
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderUpColor: "#22c55e",
-      borderDownColor: "#ef4444",
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
+      upColor: "#3fb68b",
+      downColor: "#ef5350",
+      borderUpColor: "#3fb68b",
+      borderDownColor: "#ef5350",
+      wickUpColor: "#3fb68b",
+      wickDownColor: "#ef5350",
     });
     candleSeries.setData(candles);
 
@@ -108,15 +108,15 @@ function PriceChart({
     volumeSeries.setData(volumes);
 
     const suspicionSeries: ISeriesApi<"Area"> = volumeChart.addAreaSeries({
-      lineColor: "#2dd4bf",
-      topColor: "rgba(45,212,191,0.25)",
-      bottomColor: "rgba(45,212,191,0.02)",
+      lineColor: "#f7941d",
+      topColor: "rgba(247,148,29,0.22)",
+      bottomColor: "rgba(247,148,29,0.02)",
       lineWidth: 2,
       priceScaleId: "right",
     });
     suspicionSeries.setData(suspicion);
-    suspicionSeries.createPriceLine({ price: 65, color: "#f87171", lineWidth: 1, lineStyle: 2, title: "yüksek" });
-    suspicionSeries.createPriceLine({ price: 35, color: "#fbbf24", lineWidth: 1, lineStyle: 2, title: "orta" });
+    suspicionSeries.createPriceLine({ price: 65, color: "#ef5350", lineWidth: 1, lineStyle: 2, title: "yüksek" });
+    suspicionSeries.createPriceLine({ price: 35, color: "#ffc53d", lineWidth: 1, lineStyle: 2, title: "orta" });
 
     const sync = (from: IChartApi, to: IChartApi) => {
       from.timeScale().subscribeVisibleLogicalRangeChange((range) => {
@@ -153,9 +153,9 @@ function PriceChart({
     <div className="chart-wrap">
       <div ref={ref} />
       <div className="legend" style={{ marginTop: 6 }}>
-        <span><span className="dot" style={{ background: "#22c55e" }} />Yükseliş</span>
-        <span><span className="dot" style={{ background: "#ef4444" }} />Düşüş</span>
-        <span><span className="dot" style={{ background: "#2dd4bf" }} />Şüphe skoru (alt panel)</span>
+        <span><span className="dot" style={{ background: "#3fb68b" }} />Yükseliş</span>
+        <span><span className="dot" style={{ background: "#ef5350" }} />Düşüş</span>
+        <span><span className="dot" style={{ background: "#f7941d" }} />Şüphe skoru (alt panel)</span>
         <span style={{ marginLeft: "auto" }}>Grafikte bir güne tıklayarak inceleyin</span>
       </div>
       <div ref={suspicionRef} style={{ marginTop: 4 }} />
@@ -164,8 +164,8 @@ function PriceChart({
 }
 
 const PALETTES = {
-  dark: { text: "#8b94a7", grid: "#1a2233", border: "#1e2739" },
-  light: { text: "#5b6b85", grid: "#eef1f7", border: "#e2e7f0" },
+  dark: { text: "#9a9a9a", grid: "#1d1d1d", border: "#262626" },
+  light: { text: "#5c5c56", grid: "#ecece5", border: "#dfdfd8" },
 };
 
 export default function AnalysisPage(): JSX.Element {
@@ -176,6 +176,7 @@ export default function AnalysisPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [dayIdx, setDayIdx] = useState<number | null>(null);
   const [dayReasons, setDayReasons] = useState<Reason[]>([]);
+  const [expandedSig, setExpandedSig] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -324,17 +325,58 @@ export default function AnalysisPage(): JSX.Element {
             Şüphe skoru 100 üzerinden hesaplanan bir puandır. Aşağıdaki her çubuk, o sinyalin
             skora <b>kaç puan eklediğini</b> gösterir; çubuk ne kadar uzunsa o gün skoru o kadar
             çok yükseltmiştir. Örneğin <b>+17.3</b>, o sinyalin skora 17.3 puan kattığı anlamına gelir.
+            Bir maddeye tıklayarak <b>ne anlama geldiğini</b> görebilirsiniz.
           </p>
           {contribs.length ? (
-            contribs.map((c) => (
-              <div className="sig-row" key={c.key} title={c.title}>
-                <span className="name">{c.label}</span>
-                <div className="bar">
-                  <div className="fill" style={{ width: `${Math.min(100, (c.pts / 25) * 100)}%` }} />
+            contribs.map((c) => {
+              const cat = catalog[c.key];
+              const reason = dayReasons.find((r) => r.key === c.key && r.level !== "bağlam");
+              const detail = reason?.detail;
+              const what = reason?.what ?? cat?.what;
+              const open = expandedSig === c.key;
+              const toggle = () => setExpandedSig(open ? null : c.key);
+              return (
+                <div key={c.key}>
+                  <div
+                    className={`sig-row${open ? " open" : ""}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={open}
+                    title={c.title}
+                    onClick={toggle}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggle();
+                      }
+                    }}
+                  >
+                    <span className="name">{c.label}</span>
+                    <div className="bar">
+                      <div className="fill" style={{ width: `${Math.min(100, (c.pts / 25) * 100)}%` }} />
+                    </div>
+                    <span className="pts">+{c.pts.toFixed(1)}</span>
+                    <span className="chev" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </div>
+                  {open ? (
+                    <div className="sig-detail">
+                      {detail ? <p>{detail}</p> : null}
+                      {what ? (
+                        <p className="what">
+                          <b>Bu ne demek?</b> {what}
+                        </p>
+                      ) : null}
+                      {!detail && !what ? <p>{c.title}</p> : null}
+                    </div>
+                  ) : null}
                 </div>
-                <span className="pts">+{c.pts.toFixed(1)}</span>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="empty">Bu gün belirgin bir katkı yok.</div>
           )}
@@ -414,8 +456,8 @@ export default function AnalysisPage(): JSX.Element {
         <Card
           title={
             matchedNews.length
-              ? `📰 Bu Hisseyle İlgili Haberler (${matchedNews.length})`
-              : "📰 Bu hisseyle eşleşen haber bulunamadı — güncel piyasa haberleri"
+              ? `Bu Hisseyle İlgili Haberler (${matchedNews.length})`
+              : "Bu hisseyle eşleşen haber bulunamadı — güncel piyasa haberleri"
           }
         >
           {matchedNews.length ? null : (
@@ -439,7 +481,7 @@ export default function AnalysisPage(): JSX.Element {
           ))}
         </Card>
       ) : (
-        <Card title="📰 Haberler">
+        <Card title="Haberler">
           <p className="hint" style={{ fontSize: ".78rem", marginBottom: 0 }}>
             Şu an gösterilecek haber yok. Ayarlar sayfasından RSS akışlarını kontrol edin.
           </p>

@@ -93,7 +93,7 @@ export default function SettingsPage(): JSX.Element {
     testLlm()
       .then((r) => {
         if (r.ok) setNotice(`✓ Bağlantı başarılı: ${r.message}`);
-        else if (r.terms_required) setNotice(`⚠ Kullanım şartları onaylanmalı (sürüm ${r.version ?? "?"}).`);
+        else if (r.terms_required) setNotice(`Kullanım şartları onaylanmalı (sürüm ${r.version ?? "?"}).`);
         else setError(`LLM testi başarısız: ${r.message}`);
       })
       .catch((e) => setError(String(e.message ?? e)))
@@ -128,12 +128,12 @@ export default function SettingsPage(): JSX.Element {
     <>
       {error ? <ErrorBox message={error} /> : null}
       {notice ? (
-        <div className="card" style={{ borderColor: "rgba(45,212,191,.4)" }}>
+        <div className="card" style={{ borderColor: "rgba(247,148,29,.4)" }}>
           <p style={{ color: "var(--accent)", fontSize: ".86rem" }}>{notice}</p>
         </div>
       ) : null}
 
-      <Card title="🤖 Yapay zekâ açıklaması (LLM)">
+      <Card title="Yapay Zekâ Açıklaması (LLM)">
         <p className="hint">
           LLM Açıklama sayfasında kullanılan modeli buradan seçersiniz. Yerel model
           (Ollama) bilgisayarınızda çalışır ve internete veri göndermez. EVREN gibi
@@ -249,7 +249,7 @@ export default function SettingsPage(): JSX.Element {
         </div>
       </Card>
 
-      <Card title="📰 Haber kaynakları (RSS)">
+      <Card title="Haber Kaynakları (RSS)">
         <p className="hint">
           Yalnızca borsa/ekonomi ile ilgili haberler gösterilir. Akış adreslerini
           virgülle ayırarak yazın.
@@ -279,7 +279,7 @@ export default function SettingsPage(): JSX.Element {
         </div>
       </Card>
 
-      <Card title="⚙️ Analiz motoru varsayılanları">
+      <Card title="Analiz Motoru Varsayılanları">
         <p className="hint">
           Bu değerler analiz motorunun temel ayarlarıdır. Hisse sayfasındaki
           “Analiz Ayarları” panelinden anlık olarak da değiştirilebilir.
